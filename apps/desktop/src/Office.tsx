@@ -20,6 +20,7 @@ export function Office({ session }: { session: Session }) {
   const [ocupados, setOcupados] = useState<Set<string>>(new Set());
   const [mesa, setMesa] = useState(false);
   const [pendentes, setPendentes] = useState(0);
+  const [ponteLigada, setPonteLigada] = useState(false);
 
   const carregarAgentes = useCallback(async (escId: string) => {
     const { data, error } = await supabase.from('agentes').select('*').eq('escritorio_id', escId).order('criado_em');
@@ -47,6 +48,16 @@ export function Office({ session }: { session: Session }) {
   }, [session.user.id, carregarAgentes, carregarOcupados, contarPendentes]);
 
   useEffect(() => { carregar(); }, [carregar]);
+
+  // A ponte local desta pessoa conta como ligada se deu sinal no último minuto.
+  useEffect(() => {
+    const ver = async () => {
+      const { data } = await supabase.from('pontes').select('visto_em').eq('user_id', session.user.id).maybeSingle();
+      setPonteLigada(!!data && Date.now() - Date.parse(data.visto_em) < 70_000);
+    };
+    ver(); const t = setInterval(ver, 20_000);
+    return () => clearInterval(t);
+  }, [session.user.id]);
 
   // Ao vivo: qualquer mudança nos agentes do escritório aparece para todo o time.
   useEffect(() => {
@@ -91,6 +102,7 @@ export function Office({ session }: { session: Session }) {
           <p className="mudo">{session.user.email} · papel: {papel}</p>
         </div>
         <div className="acoes">
+          <span className={'ponte' + (ponteLigada ? ' ligada' : '')} title="Programa que deixa os agentes trabalharem em arquivos do seu computador. Para ligar: npm run ponte">Ponte local {ponteLigada ? 'ligada' : 'desligada'}</span>
           <button className={'btn' + (pendentes ? ' alerta' : '')} onClick={() => { setMesa(!mesa); setAberto(null); }}>Sua mesa{pendentes ? ` (${pendentes})` : ''}</button>
           {pode(papel, 'editor') && <button className="btn primario" onClick={() => setCriando(true)}>Criar agente</button>}
           <button className="btn" onClick={() => supabase.auth.signOut()}>Sair</button>
@@ -119,7 +131,7 @@ export function Office({ session }: { session: Session }) {
       {!mesa && aberto && agentes.find(a => a.id === aberto) && (
         <AgentPanel agente={agentes.find(a => a.id === aberto)!} podeOperar={pode(papel, 'operador')} onFechar={() => setAberto(null)} />
       )}
-      {criando && <AgentForm escritorioId={escritorio.id} onFechar={() => setCriando(false)} onCriado={() => { setCriando(false); carregarAgentes(escritorio.id); }} />}
+      {criando && <AgentForm escritorioId={escritorio.id} coresUsadas={agentes.map(a => a.aparencia.cor)} onFechar={() => setCriando(false)} onCriado={() => { setCriando(false); carregarAgentes(escritorio.id); }} />}
     </div>
   );
 }

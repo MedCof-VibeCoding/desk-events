@@ -74,7 +74,7 @@ h3 { font-size: .95rem; margin: 18px 0 6px; }
 .resultado { margin-top: 8px; white-space: pre-wrap; font-size: .92rem; border-left: 3px solid var(--accent); padding-left: 10px; }
 .resultado.erro { border-left-color: var(--danger); }
 @media (max-width: 860px) { .app.com-painel { grid-template-columns: 1fr; } .painel { border-left: 0; border-top: 1px solid var(--line); max-height: none; } }
-.palco3d { position: relative; height: clamp(360px, 62vh, 720px); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #0E1220; }
+.palco3d { position: relative; height: clamp(420px, calc(100vh - 190px), 900px); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #0E1220; }
 .tela3d { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
 .tela3d:active { cursor: grabbing; }
 .etiquetas { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
@@ -92,3 +92,7 @@ h3 { font-size: .95rem; margin: 18px 0 6px; }
 .args { margin: 6px 0; padding: 8px; background: var(--bg); border-radius: 6px; font: .82rem/1.4 ui-monospace, Consolas, monospace; white-space: pre-wrap; word-break: break-word; max-height: 160px; overflow: auto; }
 .pedido-mesa .acoes { margin-top: 8px; }
 .estado.aguardando_aprovacao { color: #E3A008; border-color: currentColor; }
+.linha-acoes { display: flex; gap: 6px; margin-top: 8px; }
+.ponte { font-size: .8rem; border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+.ponte::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #6B7487; }
+.ponte.ligada { color: var(--ok); border-color: currentColor; } .ponte.ligada::before { background: currentColor; }

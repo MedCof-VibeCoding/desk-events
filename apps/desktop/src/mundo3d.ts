@@ -5,7 +5,7 @@ import type { Agente, Aparencia } from './supabase';
 const MESAS_X = [-5.4, -1.8, 1.8, 5.4];
 const FILEIRAS_Z = [-1.5, 1.5, 4.5];
 const FAIXAS = [-3.2, 0.3, 3.3, 6.3];
-const PONTOS = [{ x: -8.6, z: -3.2 }, { x: 8.4, z: -3.2 }, { x: 0, z: -3.2 }, { x: 8.6, z: 0.3 }, { x: 8.2, z: 6.3 }, { x: -8.6, z: 6.3 }, { x: -8.6, z: 3.3 }];
+const PONTOS = [{ x: -8.4, z: -3.2 }, { x: 7.6, z: -3.2 }, { x: 0, z: -3.2 }, { x: 8.4, z: 0.3 }, { x: 7.4, z: 6.3 }, { x: -7.6, z: 6.3 }, { x: -8.2, z: 3.3 }];
 const VEL = 1.7;
 
 type P = { x: number; z: number };

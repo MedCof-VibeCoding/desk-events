@@ -6,7 +6,16 @@ interface Pedido {
   pedido: { ferramenta?: string; args?: Record<string, unknown> };
   fichas: { titulo: string } | null; agentes: { nome: string } | null;
 }
-const ACAO: Record<string, string> = { buscar_url: 'quer ler uma página da internet', pedir_aprovacao: 'pede a sua decisão' };
+const ACAO: Record<string, string> = { buscar_url: 'quer ler uma página da internet', pedir_aprovacao: 'pede a sua decisão', listar_arquivos: 'quer ver os arquivos de uma pasta do computador', ler_arquivo: 'quer ler um arquivo do computador', escrever_arquivo: 'quer gravar um arquivo no computador' };
+function detalhe(p: Pedido['pedido']): string {
+  const a = p.args ?? {};
+  if (p.ferramenta === 'pedir_aprovacao') return String(a.resumo ?? '');
+  if (p.ferramenta === 'buscar_url') return String(a.url ?? '');
+  if (p.ferramenta === 'listar_arquivos') return `Pasta: ${String(a.pasta || '(raiz da pasta de trabalho)')}`;
+  if (p.ferramenta === 'ler_arquivo') return `Arquivo: ${String(a.caminho ?? '')}`;
+  if (p.ferramenta === 'escrever_arquivo') return `Arquivo: ${String(a.caminho ?? '')}\n\nConteúdo:\n${String(a.conteudo ?? '').slice(0, 4000)}`;
+  return JSON.stringify(a, null, 2);
+}
 
 // Sua mesa: os pedidos de aprovação que os agentes mandaram para o time.
 export function Mesa({ escritorioId, podeOperar, onFechar, onMudou }: { escritorioId: string; podeOperar: boolean; onFechar: () => void; onMudou: (n: number) => void }) {
@@ -51,7 +60,7 @@ export function Mesa({ escritorioId, podeOperar, onFechar, onMudou }: { escritor
           <li key={p.id} className="pedido-mesa">
             <p><strong>{p.agentes?.nome ?? 'Um agente'}</strong> {ACAO[p.pedido.ferramenta ?? ''] ?? `quer usar ${p.pedido.ferramenta}`}</p>
             <p className="mudo">Ficha: {p.fichas?.titulo ?? 'sem título'}</p>
-            <pre className="args">{p.pedido.ferramenta === 'pedir_aprovacao' ? String(p.pedido.args?.resumo ?? '') : p.pedido.ferramenta === 'buscar_url' ? String(p.pedido.args?.url ?? '') : JSON.stringify(p.pedido.args ?? {}, null, 2)}</pre>
+            <pre className="args">{detalhe(p.pedido)}</pre>
             {podeOperar ? (
               <>
                 <label htmlFor={`n-${p.id}`}>Comentário para o agente (opcional)</label>

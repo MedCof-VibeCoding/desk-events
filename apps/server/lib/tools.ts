@@ -7,11 +7,19 @@ export interface FerramentaInterna extends Ferramenta { risco: Risco }
 export const FERRAMENTAS: FerramentaInterna[] = [
   { nome: 'buscar_url', risco: 'leitura', descricao: 'Lê o texto de uma página pública da internet (somente https). Devolve o texto da página, sem imagens.',
     parametros: { type: 'object', properties: { url: { type: 'string', description: 'Endereço completo, começando com https://' } }, required: ['url'] } },
+  { nome: 'listar_arquivos', risco: 'leitura', descricao: 'Lista os arquivos e pastas da pasta de trabalho no computador de quem criou a ficha. Só funciona com a ponte local dessa pessoa ligada.',
+    parametros: { type: 'object', properties: { pasta: { type: 'string', description: 'Subpasta, relativa à pasta de trabalho. Vazio para a raiz.' } } } },
+  { nome: 'ler_arquivo', risco: 'leitura', descricao: 'Lê um arquivo de texto da pasta de trabalho no computador de quem criou a ficha (txt, md, csv, json e parecidos).',
+    parametros: { type: 'object', properties: { caminho: { type: 'string', description: 'Caminho relativo à pasta de trabalho, por exemplo relatorios/janeiro.md' } }, required: ['caminho'] } },
+  { nome: 'escrever_arquivo', risco: 'escrita', descricao: 'Cria ou substitui um arquivo de texto na pasta de trabalho no computador de quem criou a ficha.',
+    parametros: { type: 'object', properties: { caminho: { type: 'string', description: 'Caminho relativo à pasta de trabalho' }, conteudo: { type: 'string', description: 'Texto completo do arquivo' } }, required: ['caminho', 'conteudo'] } },
   { nome: 'passar_ficha', risco: 'livre', descricao: 'Passa esta ficha para outro agente do escritório continuar o trabalho. Use quando a próxima etapa for do cargo de outro agente.',
     parametros: { type: 'object', properties: { agente: { type: 'string', description: 'Nome exato do agente que vai receber' }, mensagem: { type: 'string', description: 'O que você fez e o que o outro agente precisa fazer' } }, required: ['agente', 'mensagem'] } },
   { nome: 'pedir_aprovacao', risco: 'irreversivel', descricao: 'Pede a decisão de uma pessoa do time antes de seguir. Use quando houver risco, dúvida importante ou uma escolha que cabe a um humano.',
     parametros: { type: 'object', properties: { resumo: { type: 'string', description: 'O que você quer fazer ou decidir, em uma ou duas frases' } }, required: ['resumo'] } }
 ];
+
+export const LOCAIS = new Set(['listar_arquivos', 'ler_arquivo', 'escrever_arquivo']);
 
 // Tabela de autonomia: quando a ferramenta precisa passar pela mesa de aprovação.
 export function precisaAprovar(autonomia: string, risco: Risco): boolean {

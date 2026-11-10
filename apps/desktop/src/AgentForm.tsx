@@ -13,11 +13,11 @@ const NIVEIS: { v: Autonomia; t: string }[] = [
   { v: 'livre', t: 'Livre: age dentro da lista autorizada' }
 ];
 
-export function AgentForm({ escritorioId, onFechar, onCriado }: { escritorioId: string; onFechar: () => void; onCriado: () => void }) {
+export function AgentForm({ escritorioId, coresUsadas, onFechar, onCriado }: { escritorioId: string; coresUsadas: string[]; onFechar: () => void; onCriado: () => void }) {
   const [nome, setNome] = useState('');
   const [cargo, setCargo] = useState('');
   const [instrucoes, setInstrucoes] = useState('');
-  const [aparencia, setAparencia] = useState<Aparencia>({ corpo: 'monitor', cor: CORES[0], acessorio: null });
+  const [aparencia, setAparencia] = useState<Aparencia>({ corpo: 'monitor', cor: CORES.find(c => !coresUsadas.includes(c)) ?? CORES[0], acessorio: null });
   const [provedor, setProvedor] = useState<Provedor>('anthropic');
   const [modelo, setModelo] = useState('');
   const [autonomia, setAutonomia] = useState<Autonomia>('supervisionado');

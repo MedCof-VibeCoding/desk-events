@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "npm run dev -w apps/desktop",
     "build": "npm run build -w apps/desktop",
+    "ponte": "node apps/bridge/ponte.mjs",
     "typecheck": "npm run typecheck -w apps/desktop && npm run typecheck -w apps/server"
   }
 }

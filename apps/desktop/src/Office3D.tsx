@@ -31,9 +31,9 @@ export function Office3D(props: Props) {
     const enquadrar = () => {
       const w = el.clientWidth || 800, h = el.clientHeight || 500;
       renderer.setSize(w, h, false);
-      const meia = 13.5 / zoom, prop = w / h;
+      const meia = 13.2 / zoom, prop = w / h, PROP_SALA = 1.52;
       // Mostra a sala inteira: limita pela largura em telas estreitas.
-      const mx = prop >= 1.45 ? meia * prop / 1.45 : meia, my = mx / prop;
+      const mx = prop >= PROP_SALA ? meia * prop / PROP_SALA : meia, my = mx / prop;
       camera.left = -mx; camera.right = mx; camera.top = my; camera.bottom = -my;
       camera.position.copy(alvo).add(DIR); camera.lookAt(alvo); camera.updateProjectionMatrix();
     };

@@ -1,0 +1,9 @@
+{
+  "name": "@desk-events/bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Ponte local — executa no computador da pessoa os pedidos de arquivo dos agentes",
+  "scripts": { "start": "node ponte.mjs" },
+  "dependencies": { "@supabase/supabase-js": "^2.45.0" }
+}
