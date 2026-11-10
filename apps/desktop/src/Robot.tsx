@@ -32,7 +32,8 @@ export function RobotPixels({ aparencia, ativo = true }: { aparencia: Aparencia;
   const extra = aparencia.acessorio ? ACESSORIOS[aparencia.acessorio] ?? [] : [];
   return <>{px}{extra.map(([x, y, w, h, f], i) => <rect key={`a${i}`} x={x} y={y} width={w} height={h} fill={f} />)}</>;
 }
-export const corEscura = (aparencia: Aparencia) => paleta(aparencia, true).B;
+/** Tom escuro do robô no estado ligado ou desligado informado. */
+export const corEscura = (aparencia: Aparencia, ativo = true) => paleta(aparencia, ativo).B;
 
 export function Robot({ aparencia, ativo = true, tamanho = 96 }: { aparencia: Aparencia; ativo?: boolean; tamanho?: number }) {
   return (

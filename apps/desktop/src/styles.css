@@ -74,3 +74,13 @@ h3 { font-size: .95rem; margin: 18px 0 6px; }
 .resultado { margin-top: 8px; white-space: pre-wrap; font-size: .92rem; border-left: 3px solid var(--accent); padding-left: 10px; }
 .resultado.erro { border-left-color: var(--danger); }
 @media (max-width: 860px) { .app.com-painel { grid-template-columns: 1fr; } .painel { border-left: 0; border-top: 1px solid var(--line); max-height: none; } }
+.palco3d { position: relative; height: clamp(360px, 62vh, 720px); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #0E1220; }
+.tela3d { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+.tela3d:active { cursor: grabbing; }
+.etiquetas { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.etiqueta { position: absolute; left: 0; top: 0; pointer-events: auto; display: inline-flex; align-items: center; gap: 8px; font: 600 .8rem/1 "Segoe UI", system-ui, sans-serif; color: #F1F3F8; background: rgba(16, 19, 32, .92); border: 0; border-left: 4px solid; padding: 5px 8px; white-space: nowrap; cursor: pointer; will-change: transform; }
+.etiqueta.escolhida { outline: 2px solid var(--accent); }
+.etiqueta .luz { width: 8px; height: 8px; border-radius: 50%; background: #6B7487; }
+.etiqueta.trabalhando .luz { background: #3DDC84; box-shadow: 0 0 6px #3DDC84; }
+.so-leitor { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.dica3d { position: absolute; left: 12px; bottom: 8px; margin: 0; font-size: .76rem; color: #9BA4BD; pointer-events: none; }

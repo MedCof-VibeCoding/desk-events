@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase, pode, type Agente, type Escritorio, type Papel } from './supabase';
-import { OfficeScene } from './OfficeScene';
+import { Office3D } from './Office3D';
 import { AgentForm } from './AgentForm';
 import { AgentPanel } from './AgentPanel';
 
@@ -88,7 +88,7 @@ export function Office({ session }: { session: Session }) {
       </header>
       {erro && <p className="erro" role="alert">{erro}</p>}
       <section className="sala" aria-label="Escritório">
-        <OfficeScene agentes={agentes} ocupados={ocupados} selecionado={aberto} onEscolher={id => setAberto(aberto === id ? null : id)} />
+        <Office3D agentes={agentes} ocupados={ocupados} selecionado={aberto} onEscolher={id => setAberto(aberto === id ? null : id)} />
         {agentes.length === 0 ? (
           <p className="vazio">O escritório está vazio. {pode(papel, 'editor') ? 'Crie o primeiro agente para ele ocupar uma mesa.' : 'Peça a um editor para criar o primeiro agente.'}</p>
         ) : (
