@@ -2,6 +2,7 @@
   "name": "@desk-events/desktop",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Escritório de Agentes — aplicativo para Windows",
   "author": "MedCof Eventos",
   "main": "dist-electron/main.js",
