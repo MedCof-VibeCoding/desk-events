@@ -84,3 +84,11 @@ h3 { font-size: .95rem; margin: 18px 0 6px; }
 .etiqueta.trabalhando .luz { background: #3DDC84; box-shadow: 0 0 6px #3DDC84; }
 .so-leitor { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .dica3d { position: absolute; left: 12px; bottom: 8px; margin: 0; font-size: .76rem; color: #9BA4BD; pointer-events: none; }
+.btn.alerta { border-color: #E3A008; color: #E3A008; }
+.passos { list-style: none; margin: 8px 0 0; padding: 0 0 0 10px; border-left: 2px solid var(--line); display: grid; gap: 4px; font-size: .84rem; color: var(--muted); }
+.passos strong { color: var(--ink); }
+.pedido-mesa { background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.pedido-mesa p { margin: 0 0 4px; }
+.args { margin: 6px 0; padding: 8px; background: var(--bg); border-radius: 6px; font: .82rem/1.4 ui-monospace, Consolas, monospace; white-space: pre-wrap; word-break: break-word; max-height: 160px; overflow: auto; }
+.pedido-mesa .acoes { margin-top: 8px; }
+.estado.aguardando_aprovacao { color: #E3A008; border-color: currentColor; }

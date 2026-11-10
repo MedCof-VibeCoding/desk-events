@@ -4,6 +4,7 @@ import { supabase, pode, type Agente, type Escritorio, type Papel } from './supa
 import { Office3D } from './Office3D';
 import { AgentForm } from './AgentForm';
 import { AgentPanel } from './AgentPanel';
+import { Mesa } from './Mesa';
 
 const PROVEDOR: Record<string, string> = { anthropic: 'Claude', openai: 'ChatGPT', google: 'Gemini' };
 
@@ -17,6 +18,8 @@ export function Office({ session }: { session: Session }) {
   const [criando, setCriando] = useState(false);
   const [aberto, setAberto] = useState<string | null>(null);
   const [ocupados, setOcupados] = useState<Set<string>>(new Set());
+  const [mesa, setMesa] = useState(false);
+  const [pendentes, setPendentes] = useState(0);
 
   const carregarAgentes = useCallback(async (escId: string) => {
     const { data, error } = await supabase.from('agentes').select('*').eq('escritorio_id', escId).order('criado_em');
@@ -29,14 +32,19 @@ export function Office({ session }: { session: Session }) {
     setOcupados(new Set((data ?? []).map(f => f.agente_atual as string).filter(Boolean)));
   }, []);
 
+  const contarPendentes = useCallback(async (escId: string) => {
+    const { count } = await supabase.from('aprovacoes').select('id', { count: 'exact', head: true }).eq('escritorio_id', escId).eq('estado', 'pendente');
+    setPendentes(count ?? 0);
+  }, []);
+
   const carregar = useCallback(async () => {
     setCarregando(true); setErro('');
     const { data, error } = await supabase.from('membros').select('papel, escritorios(id, nome, pausado)').eq('user_id', session.user.id).limit(1);
     if (error) { setErro(error.message); setCarregando(false); return; }
     const linha = data?.[0] as unknown as { papel: Papel; escritorios: Escritorio } | undefined;
-    if (linha?.escritorios) { setEscritorio(linha.escritorios); setPapel(linha.papel); await carregarAgentes(linha.escritorios.id); await carregarOcupados(linha.escritorios.id); }
+    if (linha?.escritorios) { setEscritorio(linha.escritorios); setPapel(linha.papel); await carregarAgentes(linha.escritorios.id); await carregarOcupados(linha.escritorios.id); await contarPendentes(linha.escritorios.id); }
     setCarregando(false);
-  }, [session.user.id, carregarAgentes, carregarOcupados]);
+  }, [session.user.id, carregarAgentes, carregarOcupados, contarPendentes]);
 
   useEffect(() => { carregar(); }, [carregar]);
 
@@ -46,9 +54,10 @@ export function Office({ session }: { session: Session }) {
     const canal = supabase.channel(`agentes-${escritorio.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'agentes', filter: `escritorio_id=eq.${escritorio.id}` }, () => carregarAgentes(escritorio.id))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'fichas', filter: `escritorio_id=eq.${escritorio.id}` }, () => carregarOcupados(escritorio.id))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'aprovacoes', filter: `escritorio_id=eq.${escritorio.id}` }, () => contarPendentes(escritorio.id))
       .subscribe();
     return () => { supabase.removeChannel(canal); };
-  }, [escritorio, carregarAgentes, carregarOcupados]);
+  }, [escritorio, carregarAgentes, carregarOcupados, contarPendentes]);
 
   async function criarEscritorio(e: FormEvent) {
     e.preventDefault();
@@ -75,27 +84,28 @@ export function Office({ session }: { session: Session }) {
   }
 
   return (
-    <div className={'app' + (aberto ? ' com-painel' : '')}>
+    <div className={'app' + (aberto || mesa ? ' com-painel' : '')}>
       <header className="topo">
         <div>
           <h1>{escritorio.nome}</h1>
           <p className="mudo">{session.user.email} · papel: {papel}</p>
         </div>
         <div className="acoes">
+          <button className={'btn' + (pendentes ? ' alerta' : '')} onClick={() => { setMesa(!mesa); setAberto(null); }}>Sua mesa{pendentes ? ` (${pendentes})` : ''}</button>
           {pode(papel, 'editor') && <button className="btn primario" onClick={() => setCriando(true)}>Criar agente</button>}
           <button className="btn" onClick={() => supabase.auth.signOut()}>Sair</button>
         </div>
       </header>
       {erro && <p className="erro" role="alert">{erro}</p>}
       <section className="sala" aria-label="Escritório">
-        <Office3D agentes={agentes} ocupados={ocupados} selecionado={aberto} onEscolher={id => setAberto(aberto === id ? null : id)} />
+        <Office3D agentes={agentes} ocupados={ocupados} selecionado={aberto} onEscolher={id => { setMesa(false); setAberto(aberto === id ? null : id); }} />
         {agentes.length === 0 ? (
           <p className="vazio">O escritório está vazio. {pode(papel, 'editor') ? 'Crie o primeiro agente para ele ocupar uma mesa.' : 'Peça a um editor para criar o primeiro agente.'}</p>
         ) : (
           <ul className="elenco" aria-label="Agentes">
             {agentes.map(a => (
               <li key={a.id}>
-                <button className={'ficha-agente' + (aberto === a.id ? ' ativa' : '')} onClick={() => setAberto(aberto === a.id ? null : a.id)}>
+                <button className={'ficha-agente' + (aberto === a.id ? ' ativa' : '')} onClick={() => { setMesa(false); setAberto(aberto === a.id ? null : a.id); }}>
                   <span className="ponto" style={{ background: a.aparencia.cor }} />
                   <span className="nome">{a.nome}</span>
                   <span className="mudo">{ocupados.has(a.id) ? 'Trabalhando' : a.ativo ? 'Livre' : 'Desativado'} · {PROVEDOR[a.provedor]}</span>
@@ -105,7 +115,8 @@ export function Office({ session }: { session: Session }) {
           </ul>
         )}
       </section>
-      {aberto && agentes.find(a => a.id === aberto) && (
+      {mesa && <Mesa escritorioId={escritorio.id} podeOperar={pode(papel, 'operador')} onFechar={() => setMesa(false)} onMudou={setPendentes} />}
+      {!mesa && aberto && agentes.find(a => a.id === aberto) && (
         <AgentPanel agente={agentes.find(a => a.id === aberto)!} podeOperar={pode(papel, 'operador')} onFechar={() => setAberto(null)} />
       )}
       {criando && <AgentForm escritorioId={escritorio.id} onFechar={() => setCriando(false)} onCriado={() => { setCriando(false); carregarAgentes(escritorio.id); }} />}

@@ -126,7 +126,7 @@ export function OfficeScene({ agentes, ocupados, selecionado, onEscolher }: {
             <ellipse cx={6} cy={16} rx={6} ry={1.5} className="c-sombra" />
             {selecionado === a.id && <rect x={-2} y={16.5} width={16} height={1.5} className="c-escolha" />}
             <g className="corpo">
-              <rect className="pa" x={3} y={14} width={2} height={2} fill={corEscura(a.aparencia, a.ativo)} /><rect className="pb" x={7} y={14} width={2} height={2} fill={corEscura(a.aparencia, a.ativo)} />
+              <rect className="pa" x={3} y={14} width={2} height={2} fill={corEscura(a.aparencia)} /><rect className="pb" x={7} y={14} width={2} height={2} fill={corEscura(a.aparencia)} />
               <RobotPixels aparencia={a.aparencia} ativo={a.ativo} />
             </g>
             <g className="balao"><rect x={11} y={-19} width={13} height={8} fill="#1C2030" /><rect x={12} y={-18} width={11} height={6} fill="#FFFFFF" /><rect className="p1" x={14} y={-16} width={1} height={2} fill="#3B4252" /><rect className="p2" x={17} y={-16} width={1} height={2} fill="#3B4252" /><rect className="p3" x={20} y={-16} width={1} height={2} fill="#3B4252" /></g>

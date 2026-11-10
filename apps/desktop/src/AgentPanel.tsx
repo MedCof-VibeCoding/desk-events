@@ -63,6 +63,7 @@ export function AgentPanel({ agente, podeOperar, onFechar }: { agente: Agente; p
             <details open={f === fichas[0]}>
               <summary><span className={`estado ${f.estado}`}>{ESTADO[f.estado]}</span> {f.titulo}</summary>
               <p className="pedido">{f.pedido}</p>
+              <Passos fichaId={f.id} />
               {f.resultado && <div className={f.estado === 'erro' ? 'resultado erro' : 'resultado'}>{f.resultado}</div>}
             </details>
           </li>
@@ -70,4 +71,35 @@ export function AgentPanel({ agente, podeOperar, onFechar }: { agente: Agente; p
       </ul>
     </aside>
   );
+}
+
+interface Passo { id: number; tipo: string; conteudo: { msg?: { role: string; texto?: string; chamadas?: { nome: string; args: Record<string, unknown> }[]; nome?: string; resultado?: string }; de?: string; para?: string; mensagem?: string; erro?: string; aviso?: string }; agentes: { nome: string } | null }
+const FERRAMENTA: Record<string, string> = { buscar_url: 'Leu uma página', passar_ficha: 'Passou a ficha', pedir_aprovacao: 'Pediu aprovação' };
+
+// O que o agente fez nesta ficha, passo a passo, atualizado ao vivo.
+function Passos({ fichaId }: { fichaId: string }) {
+  const [passos, setPassos] = useState<Passo[]>([]);
+  const carregar = useCallback(async () => {
+    const { data } = await supabase.from('passos').select('id, tipo, conteudo, agentes(nome)').eq('ficha_id', fichaId).order('id');
+    setPassos((data ?? []) as unknown as Passo[]);
+  }, [fichaId]);
+  useEffect(() => { carregar(); }, [carregar]);
+  useEffect(() => {
+    const canal = supabase.channel(`passos-${fichaId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'passos', filter: `ficha_id=eq.${fichaId}` }, () => carregar())
+      .subscribe();
+    return () => { supabase.removeChannel(canal); };
+  }, [fichaId, carregar]);
+
+  const linhas: { id: string; quem: string; texto: string }[] = [];
+  for (const p of passos) {
+    const quem = p.agentes?.nome ?? 'Escritório', m = p.conteudo.msg;
+    if (p.tipo === 'repasse') linhas.push({ id: `${p.id}`, quem: p.conteudo.de ?? quem, texto: `Passou a ficha para ${p.conteudo.para}: ${p.conteudo.mensagem}` });
+    else if (p.tipo === 'sistema') linhas.push({ id: `${p.id}`, quem: 'Escritório', texto: p.conteudo.erro ?? p.conteudo.aviso ?? '' });
+    else if (m?.role === 'assistant') {
+      (m.chamadas ?? []).forEach((c, i) => linhas.push({ id: `${p.id}-${i}`, quem, texto: `${FERRAMENTA[c.nome] ?? c.nome}${c.nome === 'buscar_url' ? `: ${String(c.args.url ?? '')}` : c.nome === 'pedir_aprovacao' ? `: ${String(c.args.resumo ?? '')}` : ''}` }));
+    } else if (m?.role === 'tool' && m.nome !== 'buscar_url') linhas.push({ id: `${p.id}`, quem: 'Resposta', texto: (m.resultado ?? '').slice(0, 240) });
+  }
+  if (!linhas.length) return null;
+  return <ol className="passos">{linhas.map(l => <li key={l.id}><strong>{l.quem}</strong> {l.texto}</li>)}</ol>;
 }
