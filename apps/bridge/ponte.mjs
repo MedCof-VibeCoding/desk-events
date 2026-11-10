@@ -2,6 +2,7 @@
 // Ponte local do Escritório de Agentes.
 // Uso: npm run ponte            (pasta padrão: Documentos/Agentes)
 //      npm run ponte -- "C:\caminho\da\pasta"
+//      npm run ponte -- --comandos   (permite que os agentes rodem comandos aprovados por você)
 import { createClient } from '@supabase/supabase-js';
 import fs from 'node:fs/promises';
 import fss from 'node:fs';
@@ -41,6 +42,8 @@ const guarda = {
 const env = lerEnv();
 const supabase = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY, { auth: { storage: guarda, storageKey: 'sessao', persistSession: true, autoRefreshToken: true } });
 const hora = () => new Date().toLocaleTimeString('pt-BR');
+const COMANDOS = process.argv.includes('--comandos');
+const pastaArg = process.argv.slice(2).find(a => !a.startsWith('--'));
 
 async function entrar() {
   const { data } = await supabase.auth.getSession();
@@ -57,14 +60,14 @@ async function entrar() {
 
 async function principal() {
   if (process.argv.includes('--sair')) { await supabase.auth.signOut(); guarda.removeItem(); console.log('Sessão da ponte encerrada.'); return; }
-  const raiz = path.resolve(process.argv[2] && !process.argv[2].startsWith('--') ? process.argv[2] : path.join(os.homedir(), 'Documents', 'Agentes'));
+  const raiz = path.resolve(pastaArg ?? path.join(os.homedir(), 'Documents', 'Agentes'));
   await fs.mkdir(raiz, { recursive: true });
   const user = await entrar();
   const { data: membro } = await supabase.from('membros').select('escritorio_id, papel').eq('user_id', user.id).limit(1).maybeSingle();
   if (!membro) { console.error('Esta conta ainda não participa de nenhum escritório.'); process.exit(1); }
 
   const bater = async () => {
-    const { error } = await supabase.from('pontes').upsert({ user_id: user.id, escritorio_id: membro.escritorio_id, nome: os.hostname(), pasta: raiz, visto_em: new Date().toISOString() });
+    const { error } = await supabase.from('pontes').upsert({ user_id: user.id, escritorio_id: membro.escritorio_id, nome: os.hostname() + (COMANDOS ? ' (comandos)' : ''), pasta: raiz, visto_em: new Date().toISOString() });
     if (error) console.error(`[${hora()}] Não consegui avisar o escritório: ${error.message}`);
   };
   await bater();
@@ -78,9 +81,9 @@ async function principal() {
       emCurso.add(t.id);
       const { data: peguei } = await supabase.from('tarefas_locais').update({ estado: 'executando' }).eq('id', t.id).eq('estado', 'pendente').select('id');
       if (!peguei?.length) { emCurso.delete(t.id); continue; }
-      const alvo = t.args?.caminho ?? t.args?.pasta ?? '';
+      const alvo = t.args?.caminho ?? t.args?.pasta ?? t.args?.comando ?? '';
       try {
-        const resultado = await executar(raiz, t.ferramenta, t.args);
+        const resultado = await executar(raiz, t.ferramenta, t.args, { comandos: COMANDOS });
         await supabase.from('tarefas_locais').update({ estado: 'feito', resultado }).eq('id', t.id);
         console.log(`[${hora()}] ${t.ferramenta} ${alvo} — feito`);
       } catch (e) {
@@ -95,6 +98,7 @@ async function principal() {
 
   console.log(`\nPonte local ligada para ${user.email}.`);
   console.log(`Pasta de trabalho: ${raiz}`);
+  console.log(COMANDOS ? 'Comandos: PERMITIDOS. Cada comando só roda depois que você aprovar no site, em Sua mesa.' : 'Comandos: desligados. Para permitir, ligue com: npm run ponte -- --comandos');
   console.log('Os agentes só enxergam o que está dentro dessa pasta. Deixe esta janela aberta; Ctrl + C desliga.\n');
   const sair = async () => { await supabase.from('pontes').delete().eq('user_id', user.id); process.exit(0); };
   process.on('SIGINT', sair); process.on('SIGTERM', sair);

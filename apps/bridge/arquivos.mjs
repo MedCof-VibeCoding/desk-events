@@ -1,6 +1,7 @@
 // Operações de arquivo da ponte local. Tudo fica preso dentro da pasta de trabalho.
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { rodar } from './comandos.mjs';
 
 const MAX_LER = 200_000, MAX_GRAVAR = 1_000_000, MAX_LISTA = 200;
 const TEXTO = /\.(txt|md|markdown|csv|tsv|json|jsonl|yaml|yml|xml|html?|css|js|mjs|ts|tsx|jsx|py|sql|log|ini|toml|env\.example|srt|rtf)$/i;
@@ -58,7 +59,8 @@ export async function gravar(raiz, caminho, conteudo) {
   return `${existia ? 'Arquivo substituído' : 'Arquivo criado'}: ${path.relative(await fs.realpath(raiz), alvo).split(path.sep).join('/')} (${Buffer.byteLength(texto)} bytes).`;
 }
 
-export async function executar(raiz, ferramenta, args) {
+export async function executar(raiz, ferramenta, args, opcoes = {}) {
+  if (ferramenta === 'rodar_comando') return rodar(await fs.realpath(raiz), args?.comando, { habilitado: opcoes.comandos === true });
   if (ferramenta === 'listar_arquivos') return listar(raiz, args?.pasta);
   if (ferramenta === 'ler_arquivo') return ler(raiz, args?.caminho);
   if (ferramenta === 'escrever_arquivo') return gravar(raiz, args?.caminho, args?.conteudo);

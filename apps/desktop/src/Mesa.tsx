@@ -6,7 +6,7 @@ interface Pedido {
   pedido: { ferramenta?: string; args?: Record<string, unknown> };
   fichas: { titulo: string } | null; agentes: { nome: string } | null;
 }
-const ACAO: Record<string, string> = { buscar_url: 'quer ler uma página da internet', pedir_aprovacao: 'pede a sua decisão', listar_arquivos: 'quer ver os arquivos de uma pasta do computador', ler_arquivo: 'quer ler um arquivo do computador', escrever_arquivo: 'quer gravar um arquivo no computador' };
+const ACAO: Record<string, string> = { buscar_url: 'quer ler uma página da internet', pedir_aprovacao: 'pede a sua decisão', listar_arquivos: 'quer ver os arquivos de uma pasta do computador', ler_arquivo: 'quer ler um arquivo do computador', escrever_arquivo: 'quer gravar um arquivo no computador', rodar_comando: 'quer rodar um comando no computador' };
 function detalhe(p: Pedido['pedido']): string {
   const a = p.args ?? {};
   if (p.ferramenta === 'pedir_aprovacao') return String(a.resumo ?? '');
@@ -14,6 +14,7 @@ function detalhe(p: Pedido['pedido']): string {
   if (p.ferramenta === 'listar_arquivos') return `Pasta: ${String(a.pasta || '(raiz da pasta de trabalho)')}`;
   if (p.ferramenta === 'ler_arquivo') return `Arquivo: ${String(a.caminho ?? '')}`;
   if (p.ferramenta === 'escrever_arquivo') return `Arquivo: ${String(a.caminho ?? '')}\n\nConteúdo:\n${String(a.conteudo ?? '').slice(0, 4000)}`;
+  if (p.ferramenta === 'rodar_comando') return `Comando, exatamente como será executado:\n${String(a.comando ?? '')}`;
   return JSON.stringify(a, null, 2);
 }
 
@@ -61,6 +62,7 @@ export function Mesa({ escritorioId, podeOperar, onFechar, onMudou }: { escritor
             <p><strong>{p.agentes?.nome ?? 'Um agente'}</strong> {ACAO[p.pedido.ferramenta ?? ''] ?? `quer usar ${p.pedido.ferramenta}`}</p>
             <p className="mudo">Ficha: {p.fichas?.titulo ?? 'sem título'}</p>
             <pre className="args">{detalhe(p.pedido)}</pre>
+            {p.pedido.ferramenta === 'rodar_comando' && <p className="erro">Leia o comando inteiro antes de aprovar. Ele roda no seu computador, na pasta de trabalho da ponte. Se não entender o que ele faz, recuse.</p>}
             {podeOperar ? (
               <>
                 <label htmlFor={`n-${p.id}`}>Comentário para o agente (opcional)</label>

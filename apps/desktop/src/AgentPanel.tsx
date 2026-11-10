@@ -94,8 +94,8 @@ export function AgentPanel({ agente, podeOperar, onFechar }: { agente: Agente; p
 }
 
 interface Passo { id: number; tipo: string; conteudo: { msg?: { role: string; texto?: string; chamadas?: { id: string; nome: string; args: Record<string, unknown> }[]; id?: string; nome?: string; resultado?: string }; de?: string; para?: string; mensagem?: string; erro?: string; aviso?: string }; agentes: { nome: string } | null }
-const FEITO: Record<string, string> = { buscar_url: 'Leu a página', pedir_aprovacao: 'Pediu aprovação', listar_arquivos: 'Listou a pasta', ler_arquivo: 'Leu o arquivo', escrever_arquivo: 'Gravou o arquivo' };
-const QUER: Record<string, string> = { buscar_url: 'Quer ler a página', pedir_aprovacao: 'Pediu aprovação', listar_arquivos: 'Quer listar a pasta', ler_arquivo: 'Quer ler o arquivo', escrever_arquivo: 'Quer gravar o arquivo' };
+const FEITO: Record<string, string> = { buscar_url: 'Leu a página', pedir_aprovacao: 'Pediu aprovação', listar_arquivos: 'Listou a pasta', ler_arquivo: 'Leu o arquivo', escrever_arquivo: 'Gravou o arquivo', rodar_comando: 'Rodou o comando' };
+const QUER: Record<string, string> = { buscar_url: 'Quer ler a página', pedir_aprovacao: 'Pediu aprovação', listar_arquivos: 'Quer listar a pasta', ler_arquivo: 'Quer ler o arquivo', escrever_arquivo: 'Quer gravar o arquivo', rodar_comando: 'Quer rodar o comando' };
 
 // O que o agente fez nesta ficha, passo a passo, atualizado ao vivo.
 function Passos({ fichaId }: { fichaId: string }) {
@@ -121,7 +121,7 @@ function Passos({ fichaId }: { fichaId: string }) {
     else if (m?.role === 'assistant') {
       (m.chamadas ?? []).forEach((c, i) => {
         if (c.nome === 'passar_ficha') return; // o repasse já aparece na linha própria
-        const alvo = String(c.args.url ?? c.args.caminho ?? c.args.pasta ?? c.args.resumo ?? '');
+        const alvo = String(c.args.url ?? c.args.caminho ?? c.args.pasta ?? c.args.comando ?? c.args.resumo ?? '');
         const rotulo = (respondidas.has(c.id) ? FEITO : QUER)[c.nome] ?? c.nome;
         linhas.push({ id: `${p.id}-${i}`, quem, texto: alvo ? `${rotulo}: ${alvo}` : rotulo });
       });

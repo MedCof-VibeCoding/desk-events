@@ -13,13 +13,19 @@ export const FERRAMENTAS: FerramentaInterna[] = [
     parametros: { type: 'object', properties: { caminho: { type: 'string', description: 'Caminho relativo à pasta de trabalho, por exemplo relatorios/janeiro.md' } }, required: ['caminho'] } },
   { nome: 'escrever_arquivo', risco: 'escrita', descricao: 'Cria ou substitui um arquivo de texto na pasta de trabalho no computador de quem criou a ficha.',
     parametros: { type: 'object', properties: { caminho: { type: 'string', description: 'Caminho relativo à pasta de trabalho' }, conteudo: { type: 'string', description: 'Texto completo do arquivo' } }, required: ['caminho', 'conteudo'] } },
+  { nome: 'rodar_comando', risco: 'irreversivel', descricao: 'Roda um comando de terminal na pasta de trabalho do computador de quem criou a ficha e devolve a saída. Sempre passa pela aprovação dessa pessoa antes de rodar, então explique no comando exatamente o que precisa. Use só quando as ferramentas de arquivo não bastarem.',
+    parametros: { type: 'object', properties: { comando: { type: 'string', description: 'O comando completo, como seria digitado no terminal do Windows' } }, required: ['comando'] } },
   { nome: 'passar_ficha', risco: 'livre', descricao: 'Passa esta ficha para outro agente do escritório continuar o trabalho. Use quando a próxima etapa for do cargo de outro agente.',
     parametros: { type: 'object', properties: { agente: { type: 'string', description: 'Nome exato do agente que vai receber' }, mensagem: { type: 'string', description: 'O que você fez e o que o outro agente precisa fazer' } }, required: ['agente', 'mensagem'] } },
   { nome: 'pedir_aprovacao', risco: 'irreversivel', descricao: 'Pede a decisão de uma pessoa do time antes de seguir. Use quando houver risco, dúvida importante ou uma escolha que cabe a um humano.',
     parametros: { type: 'object', properties: { resumo: { type: 'string', description: 'O que você quer fazer ou decidir, em uma ou duas frases' } }, required: ['resumo'] } }
 ];
 
-export const LOCAIS = new Set(['listar_arquivos', 'ler_arquivo', 'escrever_arquivo']);
+export const LOCAIS = new Set(['listar_arquivos', 'ler_arquivo', 'escrever_arquivo', 'rodar_comando']);
+// Nunca rodam sem uma pessoa decidir, qualquer que seja a autonomia do agente.
+export const SEMPRE_HUMANO = new Set(['pedir_aprovacao', 'rodar_comando']);
+// Mexem no computador de alguém: só essa pessoa pode aprovar.
+export const SO_O_DONO = new Set(['escrever_arquivo', 'rodar_comando']);
 
 // Tabela de autonomia: quando a ferramenta precisa passar pela mesa de aprovação.
 export function precisaAprovar(autonomia: string, risco: Risco): boolean {

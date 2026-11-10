@@ -1,6 +1,6 @@
 import { HttpError } from './core.js';
 import { conversar as conversarPadrao, provedorValido, type Chamada, type Msg, type Resposta } from './providers.js';
-import { FERRAMENTAS, LOCAIS, buscarUrl, precisaAprovar } from './tools.js';
+import { FERRAMENTAS, LOCAIS, SEMPRE_HUMANO, buscarUrl, precisaAprovar } from './tools.js';
 
 export interface AgenteRow { id: string; nome: string; cargo: string; instrucoes: string; provedor: string; modelo: string; autonomia: string; max_passos: number; ativo: boolean }
 export interface FichaRow { id: string; escritorio_id: string; pedido: string; estado: string; agente_atual: string | null; criado_por?: string | null }
@@ -118,7 +118,7 @@ async function resolver(c: Chamada, agente: AgenteRow, colegas: AgenteRow[], apr
     return { tipo: 'repasse', alvo, mensagem: String(c.args.mensagem ?? '') };
   }
   const pedeHumano = c.nome === 'pedir_aprovacao';
-  if (pedeHumano || precisaAprovar(agente.autonomia, def.risco)) {
+  if (SEMPRE_HUMANO.has(c.nome) || precisaAprovar(agente.autonomia, def.risco)) {
     const a = aprovacoes.find(x => x.pedido?.chamadaId === c.id);
     if (!a) return { tipo: 'esperar', criar: true };
     if (a.estado === 'pendente') return { tipo: 'esperar', criar: false };
