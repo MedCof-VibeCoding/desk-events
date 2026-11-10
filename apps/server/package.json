@@ -2,6 +2,7 @@
   "name": "@desk-events/server",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Servidor de agentes — projeto Vercel",
   "scripts": { "typecheck": "tsc --noEmit" },
   "devDependencies": { "typescript": "^5.5.4", "@types/node": "^20.14.0" }
