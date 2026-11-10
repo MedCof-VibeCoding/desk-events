@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { Agente } from './supabase';
-import { RobotPixels, corEscura } from './Robot';
+import { RobotPixels } from './Robot';
 
 // Cena do escritório em estilo de jogo: os agentes andam pela sala quando estão livres
 // e voltam para a mesa quando recebem uma ficha.
@@ -31,21 +31,22 @@ function tracar(de: P, para: P): P[] {
 }
 const sorteio = (a: number, b: number) => a + Math.random() * (b - a);
 
-export function OfficeScene({ agentes, ocupados, selecionado, onEscolher }: {
-  agentes: Agente[]; ocupados: Set<string>; selecionado: string | null; onEscolher: (id: string) => void;
+export function OfficeScene({ agentes, ocupados, selecionado, onEscolher, animar = true }: {
+  agentes: Agente[]; ocupados: Set<string>; selecionado: string | null; onEscolher: (id: string) => void; animar?: boolean;
 }) {
   const camada = useRef<SVGGElement>(null);
   const grupos = useRef(new Map<string, SVGGElement>());
   const telas = useRef(new Map<string, SVGRectElement>());
   const vidas = useRef(new Map<string, Vida>());
-  const dados = useRef({ agentes, ocupados });
-  dados.current = { agentes, ocupados };
+  const dados = useRef({ agentes, ocupados, animar });
+  dados.current = { agentes, ocupados, animar };
 
   useEffect(() => {
-    const parado = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    const reduzir = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
     let quadro = 0, antes = performance.now(), n = 0;
     const passo = (agora: number) => {
       const dt = Math.min(0.05, (agora - antes) / 1000); antes = agora; n++;
+      const parado = reduzir || !dados.current.animar;
       const { agentes: lista, ocupados: occ } = dados.current;
       lista.forEach((a, i) => {
         const lar = casa(i);
@@ -91,9 +92,10 @@ export function OfficeScene({ agentes, ocupados, selecionado, onEscolher }: {
   for (let y = 36; y < H; y += 16) for (let x = 0; x < W; x += 16) if (((x + y) / 16) % 2 === 0) piso.push(<rect key={`${x}-${y}`} x={x} y={y} width={16} height={16} className="c-piso2" />);
 
   return (
-    <svg className="cena" viewBox={`0 0 ${W} ${H}`} shapeRendering="crispEdges" role="group" aria-label="Escritório com os agentes">
+    <svg className={'cena cena-mobiliada' + (!animar ? ' sem-movimento' : '')} viewBox={`0 0 ${W} ${H}`} role="group" aria-label="Escritório mobiliado com os agentes">
       <rect width={W} height={H} className="c-piso" />{piso}
       <rect width={W} height={34} className="c-parede" /><rect y={30} width={W} height={4} className="c-rodape" />
+      {[62, 104, 146].map(y => <g key={y}><rect x={42} y={y - 13} width={234} height={34} rx={5} fill="#515756" /><rect x={44} y={y - 11} width={230} height={30} rx={4} fill="#444A49" /></g>)}
       {/* janelas, quadro e relógio */}
       {[14, 262].map(x => <g key={x}><rect x={x} y={6} width={44} height={20} className="c-moldura" /><rect x={x + 2} y={8} width={40} height={16} className="c-ceu" /><rect x={x + 21} y={8} width={2} height={16} className="c-moldura" /></g>)}
       <rect x={110} y={5} width={100} height={22} className="c-moldura" /><rect x={112} y={7} width={96} height={18} className="c-quadro" />
@@ -104,15 +106,19 @@ export function OfficeScene({ agentes, ocupados, selecionado, onEscolher }: {
       <rect x={293} y={28} width={8} height={8} fill="#9BD7FF" /><rect x={292} y={36} width={10} height={12} fill="#E4E8EF" /><rect x={294} y={40} width={1} height={2} fill="#E15A5A" /><rect x={298} y={40} width={1} height={2} fill="#4C7BEA" />
       <rect x={296} y={150} width={4} height={14} fill="#2F7F3C" /><rect x={292} y={146} width={12} height={10} fill="#46A35A" /><rect x={294} y={164} width={8} height={7} fill="#C4693D" />
       <rect x={8} y={154} width={30} height={8} className="c-sofa2" /><rect x={8} y={160} width={30} height={10} className="c-sofa" /><rect x={8} y={156} width={4} height={14} className="c-sofa2" /><rect x={34} y={156} width={4} height={14} className="c-sofa2" />
+      <rect x={14} y={158} width={7} height={5} rx={1} fill="#AD293B" /><rect x={26} y={158} width={6} height={5} rx={1} fill="#DFD8CB" />
+      <ellipse cx={22} cy={144} rx={7} ry={3} fill="#B79876" /><rect x={21} y={144} width={2} height={7} fill="#343638" />
+      <g aria-hidden="true"><rect x={73} y={7} width={23} height={22} rx={1} fill="#18191B" />{[12, 19, 26].map(y => <g key={y}><rect x={74} y={y} width={21} height={1} fill="#B79876" />{[0, 1, 2, 3].map(i => <rect key={i} x={76 + i * 4} y={y - 5} width={3} height={5} fill={['#AD293B', '#DFD8CB', '#47745D', '#715844'][i]} />)}</g>)}</g>
       {/* mesas */}
-      {agentes.map((a, i) => { const m = mesa(i); return (
-        <g key={a.id} className={selecionado === a.id ? 'posto escolhido' : 'posto'}>
+      {Array.from({ length: 12 }, (_, i) => { const a = agentes[i], m = mesa(i); return (
+        <g key={i} className={a && selecionado === a.id ? 'posto escolhido' : 'posto'}>
           <rect x={m.x - 16} y={m.y - 2} width={32} height={20} rx={1} className="c-marca" />
           <rect x={m.x - 5} y={m.y - 9} width={10} height={8} fill="#2B3142" />
-          <rect ref={el => { if (el) telas.current.set(a.id, el); else telas.current.delete(a.id); }} x={m.x - 4} y={m.y - 8} width={8} height={6} className="tela" />
+          <rect ref={el => { if (!a) return; if (el) telas.current.set(a.id, el); else telas.current.delete(a.id); }} x={m.x - 4} y={m.y - 8} width={8} height={6} className="tela" />
           <rect x={m.x - 14} y={m.y} width={28} height={5} className="c-tampo" /><rect x={m.x - 14} y={m.y + 5} width={28} height={8} className="c-frente" />
           <rect x={m.x - 13} y={m.y + 13} width={2} height={3} className="c-perna" /><rect x={m.x + 11} y={m.y + 13} width={2} height={3} className="c-perna" />
           <rect x={m.x + 7} y={m.y - 3} width={3} height={3} fill="#F2F2F2" />
+          <rect x={m.x - 6} y={m.y + 18} width={12} height={5} rx={2} fill={i % 4 === 0 ? '#AD293B' : '#343638'} />
         </g>
       ); })}
       {/* agentes */}
@@ -126,7 +132,6 @@ export function OfficeScene({ agentes, ocupados, selecionado, onEscolher }: {
             <ellipse cx={6} cy={16} rx={6} ry={1.5} className="c-sombra" />
             {selecionado === a.id && <rect x={-2} y={16.5} width={16} height={1.5} className="c-escolha" />}
             <g className="corpo">
-              <rect className="pa" x={3} y={14} width={2} height={2} fill={corEscura(a.aparencia)} /><rect className="pb" x={7} y={14} width={2} height={2} fill={corEscura(a.aparencia)} />
               <RobotPixels aparencia={a.aparencia} ativo={a.ativo} />
             </g>
             <g className="balao"><rect x={11} y={-19} width={13} height={8} fill="#1C2030" /><rect x={12} y={-18} width={11} height={6} fill="#FFFFFF" /><rect className="p1" x={14} y={-16} width={1} height={2} fill="#3B4252" /><rect className="p2" x={17} y={-16} width={1} height={2} fill="#3B4252" /><rect className="p3" x={20} y={-16} width={1} height={2} fill="#3B4252" /></g>

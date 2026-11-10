@@ -4,7 +4,7 @@ import type { Agente } from './supabase';
 import { Mundo } from './mundo3d';
 import { OfficeScene } from './OfficeScene';
 
-interface Props { agentes: Agente[]; ocupados: Set<string>; selecionado: string | null; onEscolher: (id: string) => void }
+interface Props { agentes: Agente[]; ocupados: Set<string>; selecionado: string | null; onEscolher: (id: string) => void; animar?: boolean }
 
 // Escritório em 3D isométrico. Arraste para mover a câmera e use a roda do mouse para aproximar.
 export function Office3D(props: Props) {
@@ -13,6 +13,8 @@ export function Office3D(props: Props) {
   const mundo = useRef<Mundo | null>(null);
   const dados = useRef(props); dados.current = props;
   const [sem3d, setSem3d] = useState(false);
+  const controle = useRef<(acao: string) => void>(() => {});
+  const [zona, setZona] = useState('geral');
 
   useEffect(() => {
     const el = caixa.current; if (!el) return;
@@ -38,6 +40,12 @@ export function Office3D(props: Props) {
       camera.position.copy(alvo).add(DIR); camera.lookAt(alvo); camera.updateProjectionMatrix();
     };
     enquadrar();
+    controle.current = acao => {
+      if (acao === 'mais') zoom = Math.min(3, zoom * 1.2);
+      else if (acao === 'menos') zoom = Math.max(0.7, zoom / 1.2);
+      else { setZona(acao); zoom = acao === 'geral' ? 1 : 1.7; alvo.set(acao === 'reuniao' ? -6 : acao === 'cafe' ? 5 : 0, 0, acao === 'geral' ? 0.4 : -5.5); }
+      enquadrar();
+    };
     const ro = new ResizeObserver(enquadrar); ro.observe(el);
 
     // Arrastar move a câmera; clique sem arrastar escolhe o agente.
@@ -74,7 +82,7 @@ export function Office3D(props: Props) {
     let quadro = 0, antes = performance.now();
     const laco = (agora: number) => {
       const dt = Math.min(0.05, (agora - antes) / 1000); antes = agora;
-      m.passo(dt, parado);
+      m.passo(dt, parado || dados.current.animar === false);
       renderer.render(m.scene, camera);
       const w = el.clientWidth, h = el.clientHeight;
       for (const [id, b] of etiquetas.current) {
@@ -89,7 +97,7 @@ export function Office3D(props: Props) {
 
     return () => {
       cancelAnimationFrame(quadro); ro.disconnect();
-      m.destruir(); mundo.current = null;
+      m.destruir(); mundo.current = null; controle.current = () => {};
       renderer.dispose(); renderer.domElement.remove();
     };
   }, []);
@@ -105,11 +113,13 @@ export function Office3D(props: Props) {
             className={'etiqueta' + (props.selecionado === a.id ? ' escolhida' : '')} style={{ borderLeftColor: a.aparencia.cor }}
             onClick={() => props.onEscolher(a.id)} aria-pressed={props.selecionado === a.id}>
             {a.nome}<span className="luz" aria-hidden="true" />
-            <span className="so-leitor">{props.ocupados.has(a.id) ? ', trabalhando' : ', livre'}</span>
+            <span className="so-leitor">{!a.ativo ? ', desativado' : props.ocupados.has(a.id) ? ', trabalhando' : ', disponível'}</span>
           </button>
         ))}
       </div>
-      <p className="dica3d">Arraste para mover a câmera. Use a roda do mouse para aproximar.</p>
+      <div className="zonas-escritorio" role="group" aria-label="Áreas do escritório">{[{ id: 'geral', nome: 'Visão geral' }, { id: 'reuniao', nome: 'Sala de reunião' }, { id: 'cafe', nome: 'Café' }].map(z => <button key={z.id} aria-pressed={zona === z.id} onClick={() => controle.current(z.id)}>{z.nome}</button>)}</div>
+      <div className="controles-camera" role="group" aria-label="Controles da câmera"><button aria-label="Afastar câmera" onClick={() => controle.current('menos')}>−</button><button onClick={() => controle.current('geral')}>Centralizar</button><button aria-label="Aproximar câmera" onClick={() => controle.current('mais')}>+</button></div>
+      <p className="dica3d">Arraste para explorar · role para aproximar</p>
     </div>
   );
 }

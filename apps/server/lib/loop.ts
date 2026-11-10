@@ -97,7 +97,12 @@ export async function trabalhar(store: Store, fichaId: string, deps: Deps = {}):
       throw e;
     }
     const texto = r.texto.trim();
-    await store.addPasso(ficha, agente.id, 'mensagem', { msg: { role: 'assistant', texto, chamadas: r.chamadas, bruto: r.bruto } satisfies Msg }, { e: r.tokensEntrada, s: r.tokensSaida });
+    if (r.modeloEfetivo && agente.provedor === 'openai' && !ultimaFala) {
+      await store.addPasso(ficha, agente.id, 'sistema', { aviso: `Modelo usado nesta tarefa: ${r.modeloEfetivo}.` });
+    } else if (r.modeloEfetivo && r.modeloEfetivo !== agente.modelo && !ultimaFala) {
+      await store.addPasso(ficha, agente.id, 'sistema', { aviso: `Esta conversa usa ${r.modeloEfetivo} no lugar de ${agente.modelo}.` });
+    }
+    await store.addPasso(ficha, agente.id, 'mensagem', { msg: { role: 'assistant', texto, chamadas: r.chamadas, bruto: r.bruto, modeloEfetivo: r.modeloEfetivo } satisfies Msg }, { e: r.tokensEntrada, s: r.tokensSaida });
     if (!r.chamadas.length) {
       await store.setFicha(ficha.id, { estado: 'entregue', resultado: texto || '(O modelo não devolveu texto.)' });
       return { estado: 'entregue' };

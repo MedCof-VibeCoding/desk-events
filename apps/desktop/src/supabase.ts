@@ -1,15 +1,19 @@
 import { createClient } from '@supabase/supabase-js';
+import type { Personagem, VersaoAvatar, LookAvatar } from './personagens';
+import { ehPaginaConfirmacao } from './confirmacaoEmail';
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
 export const configurado = Boolean(url && key);
-export const supabase = createClient(url || 'https://nao-configurado.supabase.co', key || 'nao-configurado');
+export const supabase = createClient(url || 'https://nao-configurado.supabase.co', key || 'nao-configurado', {
+  auth: { detectSessionInUrl: typeof window === 'undefined' || !ehPaginaConfirmacao(window.location.href) }
+});
 
 export type Papel = 'leitor' | 'operador' | 'editor' | 'dono';
 export type Provedor = 'anthropic' | 'openai' | 'google';
 export type Autonomia = 'assistido' | 'supervisionado' | 'autonomo' | 'livre';
-export interface Aparencia { corpo: 'monitor' | 'redondo' | 'antenas'; cor: string; acessorio: null | 'gravata' | 'fone' | 'bone' }
+export interface Aparencia { corpo: 'monitor' | 'redondo' | 'antenas'; cor: string; acessorio: null | 'gravata' | 'fone' | 'bone'; personagem?: Personagem | 'classico' | 'fotografo' | 'campeao' | 'pesquisador'; versao?: VersaoAvatar; look?: LookAvatar }
 export interface Escritorio { id: string; nome: string; pausado: boolean }
 export interface Agente {
   id: string; escritorio_id: string; nome: string; cargo: string; instrucoes: string;

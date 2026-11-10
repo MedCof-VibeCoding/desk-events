@@ -1,0 +1,192 @@
+{
+  "profiles": [
+    {
+      "id": "atlas",
+      "name": "Atlas",
+      "role": "Produção",
+      "names": [
+        "Bruno",
+        "Lara"
+      ],
+      "icon": "badge",
+      "description": "Jaquetas terrosas, crachá e tênis de sola clara.",
+      "accent": "#F2AD8D",
+      "main": "#BD624B",
+      "office": "#E2B099",
+      "dark": "#6F3842",
+      "ink": "#362839",
+      "skin": "#C98860",
+      "hair": "#372121",
+      "hairLight": "#64392A",
+      "eye": "#5B3828"
+    },
+    {
+      "id": "pixel",
+      "name": "Pixel",
+      "role": "Criação",
+      "names": [
+        "Davi",
+        "Maya"
+      ],
+      "icon": "camera",
+      "description": "Cachos volumosos, violeta e uma câmera a tiracolo.",
+      "accent": "#C7A8FF",
+      "main": "#7A57BB",
+      "office": "#A795CA",
+      "dark": "#4B346A",
+      "ink": "#252239",
+      "skin": "#9D5D42",
+      "hair": "#291A28",
+      "hairLight": "#4F2B3E",
+      "eye": "#3C2428"
+    },
+    {
+      "id": "ritmo",
+      "name": "Ritmo",
+      "role": "Operação",
+      "names": [
+        "Ravi",
+        "Nina"
+      ],
+      "icon": "radio",
+      "description": "Verde-petróleo, detalhes em menta e rádio preso ao cinto.",
+      "accent": "#8CE5CF",
+      "main": "#2B9D90",
+      "office": "#8BC5B6",
+      "dark": "#205963",
+      "ink": "#233C43",
+      "skin": "#B57751",
+      "hair": "#252630",
+      "hairLight": "#4A4658",
+      "eye": "#41302A"
+    },
+    {
+      "id": "foco",
+      "name": "Foco",
+      "role": "Planejamento",
+      "names": [
+        "Theo",
+        "Clara"
+      ],
+      "icon": "glasses",
+      "description": "Óculos arredondados, cabelo acobreado e tons de mel.",
+      "accent": "#F4D087",
+      "main": "#C18B3D",
+      "office": "#E0C181",
+      "dark": "#71503C",
+      "ink": "#3A3440",
+      "skin": "#E5A481",
+      "hair": "#7D3B2B",
+      "hairLight": "#B9663E",
+      "eye": "#5D6A43"
+    },
+    {
+      "id": "elo",
+      "name": "Elo",
+      "role": "Recepção",
+      "names": [
+        "Lucas",
+        "Júlia"
+      ],
+      "icon": "headset",
+      "description": "Azul-cobalto, tranças e um fone com microfone.",
+      "accent": "#9BBEFF",
+      "main": "#4A77CB",
+      "office": "#A0B7DE",
+      "dark": "#334B7F",
+      "ink": "#272E46",
+      "skin": "#784633",
+      "hair": "#261D29",
+      "hairLight": "#55352D",
+      "eye": "#3A2726"
+    },
+    {
+      "id": "byte",
+      "name": "Byte",
+      "role": "Tecnologia",
+      "names": [
+        "Ian",
+        "Íris"
+      ],
+      "icon": "terminal",
+      "description": "Verde-musgo, cabelo grafite e um terminal portátil.",
+      "accent": "#CEE59B",
+      "main": "#75994C",
+      "office": "#B2C199",
+      "dark": "#4A5D42",
+      "ink": "#293936",
+      "skin": "#D4A074",
+      "hair": "#292D31",
+      "hairLight": "#535959",
+      "eye": "#4C5945"
+    }
+  ],
+  "looks": [
+    {
+      "id": "casual",
+      "name": "Casual",
+      "description": "Moletom, jogger e tênis."
+    },
+    {
+      "id": "escritorio",
+      "name": "Escritório",
+      "description": "Camisa aberta, calça reta e sapato baixo."
+    },
+    {
+      "id": "evento",
+      "name": "Evento",
+      "description": "Colete utilitário, bolsos e credencial."
+    }
+  ],
+  "animations": [
+    {
+      "id": "Idle",
+      "name": "Em pé",
+      "loop": true,
+      "seconds": 3.2,
+      "speed": 0
+    },
+    {
+      "id": "Walk",
+      "name": "Andar",
+      "loop": true,
+      "seconds": 1.12,
+      "speed": 0.49
+    },
+    {
+      "id": "Run",
+      "name": "Correr",
+      "loop": true,
+      "seconds": 0.72,
+      "speed": 1.51
+    },
+    {
+      "id": "Wave",
+      "name": "Acenar",
+      "loop": false,
+      "seconds": 2.4,
+      "speed": 0
+    },
+    {
+      "id": "Talk",
+      "name": "Conversar",
+      "loop": true,
+      "seconds": 2.8,
+      "speed": 0
+    },
+    {
+      "id": "Sit",
+      "name": "Sentar",
+      "loop": false,
+      "seconds": 1.2,
+      "speed": 0
+    },
+    {
+      "id": "Type",
+      "name": "Digitar",
+      "loop": true,
+      "seconds": 1.6,
+      "speed": 0
+    }
+  ]
+}

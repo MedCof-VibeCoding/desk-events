@@ -25,7 +25,8 @@ export function bancoStore(): Store {
     async local(f, ferramenta, args) {
       if (!f.criado_por) return 'Esta ficha não tem uma pessoa responsável, então não há computador onde trabalhar.';
       const { data: ponte } = await db.from('pontes').select('visto_em').eq('user_id', f.criado_por).maybeSingle();
-      if (!ponte || Date.now() - Date.parse(ponte.visto_em) > 70_000) return 'A ponte local de quem criou a ficha está desligada. Sem ela não é possível mexer em arquivos do computador. Avise a pessoa na sua entrega.';
+      // 120s: a aba do escritório, em segundo plano, atrasa o batimento de 20s.
+      if (!ponte || Date.now() - Date.parse(ponte.visto_em) > 120_000) return 'A ponte local de quem criou a ficha está desligada. Sem ela não é possível mexer em arquivos do computador. Avise a pessoa na sua entrega.';
       const { data: t, error } = await db.from('tarefas_locais').insert({ escritorio_id: f.escritorio_id, ficha_id: f.id, user_id: f.criado_por, ferramenta, args }).select('id').single();
       if (error || !t) return 'Não foi possível enviar o pedido para a ponte local.';
       for (let i = 0; i < 50; i++) {

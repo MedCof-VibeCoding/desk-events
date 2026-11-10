@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase, pode, type Agente, type Escritorio, type Papel } from './supabase';
-import { Office3D } from './Office3D';
+import { Workspace } from './Workspace';
 import { AgentForm } from './AgentForm';
 import { AgentPanel } from './AgentPanel';
 import { Mesa } from './Mesa';
+import { SINAL_PONTE_MS, desligarPonte, ligarPonte, navegadorComPasta } from './ponteLocal';
 
-const PROVEDOR: Record<string, string> = { anthropic: 'Claude', openai: 'ChatGPT', google: 'Gemini' };
 
 export function Office({ session }: { session: Session }) {
   const [escritorio, setEscritorio] = useState<Escritorio | null>(null);
@@ -16,11 +16,14 @@ export function Office({ session }: { session: Session }) {
   const [erro, setErro] = useState('');
   const [nomeNovo, setNomeNovo] = useState('');
   const [criando, setCriando] = useState(false);
+  const [editando, setEditando] = useState<Agente | null>(null);
   const [aberto, setAberto] = useState<string | null>(null);
   const [ocupados, setOcupados] = useState<Set<string>>(new Set());
   const [mesa, setMesa] = useState(false);
   const [pendentes, setPendentes] = useState(0);
   const [ponteLigada, setPonteLigada] = useState(false);
+  const [pastaPonte, setPastaPonte] = useState<string | null>(null);
+  const [ligando, setLigando] = useState(false);
 
   const carregarAgentes = useCallback(async (escId: string) => {
     const { data, error } = await supabase.from('agentes').select('*').eq('escritorio_id', escId).order('criado_em');
@@ -49,15 +52,17 @@ export function Office({ session }: { session: Session }) {
 
   useEffect(() => { carregar(); }, [carregar]);
 
-  // A ponte local desta pessoa conta como ligada se deu sinal no último minuto.
+  // A ponte local desta pessoa conta como ligada se deu sinal nos últimos dois minutos.
   useEffect(() => {
     const ver = async () => {
       const { data } = await supabase.from('pontes').select('visto_em').eq('user_id', session.user.id).maybeSingle();
-      setPonteLigada(!!data && Date.now() - Date.parse(data.visto_em) < 70_000);
+      setPonteLigada(!!data && Date.now() - Date.parse(data.visto_em) < SINAL_PONTE_MS);
     };
     ver(); const t = setInterval(ver, 20_000);
     return () => clearInterval(t);
   }, [session.user.id]);
+
+  useEffect(() => () => { void desligarPonte().catch(() => {}); }, []);
 
   // Ao vivo: qualquer mudança nos agentes do escritório aparece para todo o time.
   useEffect(() => {
@@ -69,6 +74,26 @@ export function Office({ session }: { session: Session }) {
       .subscribe();
     return () => { supabase.removeChannel(canal); };
   }, [escritorio, carregarAgentes, carregarOcupados, contarPendentes]);
+
+  async function ligar() {
+    if (!escritorio || ligando) return;
+    setLigando(true); setErro('');
+    try {
+      const pasta = await ligarPonte(session.user.id, escritorio.id);
+      if (pasta) { setPastaPonte(pasta); setPonteLigada(true); }
+    } catch (e) { setErro(e instanceof Error ? e.message : 'Não foi possível ligar a ponte.'); }
+    setLigando(false);
+  }
+
+  async function desligar() {
+    try { await desligarPonte(); setPastaPonte(null); setPonteLigada(false); }
+    catch (e) { setErro(e instanceof Error ? e.message : 'Não foi possível desligar a ponte.'); }
+  }
+
+  async function sair() {
+    try { await desligarPonte(); } catch { /* a sessão encerra mesmo se o registro da ponte falhar */ }
+    await supabase.auth.signOut();
+  }
 
   async function criarEscritorio(e: FormEvent) {
     e.preventDefault();
@@ -94,44 +119,24 @@ export function Office({ session }: { session: Session }) {
     );
   }
 
-  return (
-    <div className={'app' + (aberto || mesa ? ' com-painel' : '')}>
-      <header className="topo">
-        <div>
-          <h1>{escritorio.nome}</h1>
-          <p className="mudo">{session.user.email} · papel: {papel}</p>
-        </div>
-        <div className="acoes">
-          <span className={'ponte' + (ponteLigada ? ' ligada' : '')} title="Programa que deixa os agentes trabalharem em arquivos do seu computador. Para ligar: npm run ponte">Ponte local {ponteLigada ? 'ligada' : 'desligada'}</span>
-          <button className={'btn' + (pendentes ? ' alerta' : '')} onClick={() => { setMesa(!mesa); setAberto(null); }}>Sua mesa{pendentes ? ` (${pendentes})` : ''}</button>
-          {pode(papel, 'editor') && <button className="btn primario" onClick={() => setCriando(true)}>Criar agente</button>}
-          <button className="btn" onClick={() => supabase.auth.signOut()}>Sair</button>
-        </div>
-      </header>
-      {erro && <p className="erro" role="alert">{erro}</p>}
-      <section className="sala" aria-label="Escritório">
-        <Office3D agentes={agentes} ocupados={ocupados} selecionado={aberto} onEscolher={id => { setMesa(false); setAberto(aberto === id ? null : id); }} />
-        {agentes.length === 0 ? (
-          <p className="vazio">O escritório está vazio. {pode(papel, 'editor') ? 'Crie o primeiro agente para ele ocupar uma mesa.' : 'Peça a um editor para criar o primeiro agente.'}</p>
-        ) : (
-          <ul className="elenco" aria-label="Agentes">
-            {agentes.map(a => (
-              <li key={a.id}>
-                <button className={'ficha-agente' + (aberto === a.id ? ' ativa' : '')} onClick={() => { setMesa(false); setAberto(aberto === a.id ? null : a.id); }}>
-                  <span className="ponto" style={{ background: a.aparencia.cor }} />
-                  <span className="nome">{a.nome}</span>
-                  <span className="mudo">{ocupados.has(a.id) ? 'Trabalhando' : a.ativo ? 'Livre' : 'Desativado'} · {PROVEDOR[a.provedor]}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-      {mesa && <Mesa escritorioId={escritorio.id} podeOperar={pode(papel, 'operador')} onFechar={() => setMesa(false)} onMudou={setPendentes} />}
-      {!mesa && aberto && agentes.find(a => a.id === aberto) && (
-        <AgentPanel agente={agentes.find(a => a.id === aberto)!} podeOperar={pode(papel, 'operador')} onFechar={() => setAberto(null)} />
-      )}
-      {criando && <AgentForm escritorioId={escritorio.id} coresUsadas={agentes.map(a => a.aparencia.cor)} onFechar={() => setCriando(false)} onCriado={() => { setCriando(false); carregarAgentes(escritorio.id); }} />}
-    </div>
-  );
+  const selecionado = agentes.find(a => a.id === aberto);
+  return <Workspace escritorio={escritorio} papel={papel} userId={session.user.id} email={session.user.email ?? ''}
+    agentes={agentes} ocupados={ocupados} selecionado={aberto} pendentes={pendentes} mesa={mesa} erro={erro}
+    onAgente={id => { setMesa(false); setAberto(id); }}
+    onCriar={() => { setEditando(null); setCriando(true); }}
+    onEditar={agente => { setCriando(false); setEditando(agente); }}
+    onMesa={() => { setMesa(!mesa); setAberto(null); }}
+    onFecharPainel={() => { setMesa(false); setAberto(null); }} onSair={() => void sair()}
+    ponte={<>
+      {pode(papel, 'operador') ? pastaPonte ? <>
+        <span className="ponte ligada" title={pastaPonte}>Ponte local ligada · <span className="pasta">{pastaPonte}</span></span>
+        <button className="btn" onClick={() => void desligar()}>Desligar</button>
+      </> : ponteLigada ? <span className="ponte ligada">Ponte local ligada</span> :
+        <button className="ponte" disabled={ligando} title={navegadorComPasta() ? 'Deixa os agentes trabalharem em arquivos de uma pasta deste computador.' : 'Use Chrome ou Edge para escolher uma pasta.'} onClick={() => void ligar()}>{ligando ? 'Ligando a ponte…' : 'Conectar pasta deste computador'}</button>
+      : <span className={'ponte' + (ponteLigada ? ' ligada' : '')}>Ponte local {ponteLigada ? 'ligada' : 'desligada'}</span>}
+    </>}
+    painel={mesa ? <Mesa escritorioId={escritorio.id} podeOperar={pode(papel, 'operador')} onFechar={() => setMesa(false)} onMudou={setPendentes} /> : selecionado ?
+      <AgentPanel key={selecionado.id} agente={selecionado} podeOperar={pode(papel, 'operador')} podeEditar={pode(papel, 'editor')} onFechar={() => setAberto(null)} onEditar={() => { setCriando(false); setEditando(selecionado); }} onExcluido={() => { const id = aberto; setAgentes(lista => lista.filter(a => a.id !== id)); setOcupados(atual => { const prox = new Set(atual); if (id) prox.delete(id); return prox; }); setEditando(atual => atual?.id === id ? null : atual); setAberto(null); }} /> : null}
+    modal={(criando || editando) ? <AgentForm key={editando?.id ?? 'novo'} escritorioId={escritorio.id} agente={editando ?? undefined} coresUsadas={agentes.filter(a => a.id !== editando?.id).map(a => a.aparencia.cor)} onFechar={() => { setCriando(false); setEditando(null); }} onSalvo={() => { setCriando(false); setEditando(null); void carregarAgentes(escritorio.id); }} /> : null}
+  />;
 }

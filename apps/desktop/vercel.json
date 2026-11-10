@@ -1,0 +1,3 @@
+{
+  "rewrites": [{ "source": "/confirmar-email", "destination": "/index.html" }]
+}

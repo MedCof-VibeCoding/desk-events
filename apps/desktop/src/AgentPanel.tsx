@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { supabase, servidor, type Agente, type Ficha } from './supabase';
+import { Robot } from './Robot';
 
 const ESTADO: Record<string, string> = { fila: 'Na fila', trabalhando: 'Trabalhando', aguardando_aprovacao: 'Aguardando aprovação', entregue: 'Entregue', cancelada: 'Cancelada', erro: 'Erro' };
 
-export function AgentPanel({ agente, podeOperar, onFechar }: { agente: Agente; podeOperar: boolean; onFechar: () => void }) {
+export function AgentPanel({ agente, podeOperar, podeEditar, onFechar, onEditar, onExcluido }: { agente: Agente; podeOperar: boolean; podeEditar: boolean; onFechar: () => void; onEditar: () => void; onExcluido: () => void }) {
   const [fichas, setFichas] = useState<Ficha[]>([]);
   const [pedido, setPedido] = useState('');
   const [erro, setErro] = useState('');
   const [enviando, setEnviando] = useState(false);
+  const [confirmar, setConfirmar] = useState(false);
+  const [excluindo, setExcluindo] = useState(false);
 
   const carregar = useCallback(async () => {
     const { data, error } = await supabase.from('fichas').select('id, titulo, pedido, estado, resultado, agente_atual, criado_em')
@@ -15,7 +18,7 @@ export function AgentPanel({ agente, podeOperar, onFechar }: { agente: Agente; p
     if (error) setErro(error.message); else setFichas((data ?? []) as Ficha[]);
   }, [agente.id]);
 
-  useEffect(() => { setFichas([]); setErro(''); carregar(); }, [carregar]);
+  useEffect(() => { setFichas([]); setErro(''); setConfirmar(false); carregar(); }, [carregar]);
 
   // Ao vivo: a ficha muda de estado sozinha quando o agente termina.
   useEffect(() => {
@@ -55,12 +58,34 @@ export function AgentPanel({ agente, podeOperar, onFechar }: { agente: Agente; p
     carregar();
   }
 
+  /** Apaga o agente. As fichas ficam no escritório, sem responsável. */
+  async function excluir() {
+    setExcluindo(true); setErro('');
+    const { error } = await supabase.from('agentes').delete().eq('id', agente.id);
+    setExcluindo(false);
+    if (error) { setErro(error.message); return; }
+    onExcluido();
+  }
+
   return (
     <aside className="painel" aria-label={`Tarefas de ${agente.nome}`}>
       <div className="painel-topo">
-        <div><h2>{agente.nome}</h2><p className="mudo">{agente.cargo || 'Sem cargo definido'}</p></div>
-        <button className="btn pequeno" onClick={onFechar}>Fechar</button>
+        <div className="perfil-agente-painel"><Robot aparencia={agente.aparencia} ativo={agente.ativo} tamanho={64} /><div><h2>{agente.nome}</h2><p className="mudo">{agente.cargo || 'Sem cargo definido'}</p></div></div>
+        <div className="acoes">
+          {podeEditar && <button className="btn pequeno" onClick={onEditar}>Editar</button>}
+          {podeEditar && <button className="btn pequeno perigo" onClick={() => setConfirmar(true)}>Excluir</button>}
+          <button className="btn pequeno" onClick={onFechar}>Fechar</button>
+        </div>
       </div>
+      {confirmar && (
+        <div className="pedido-mesa">
+          <p>Excluir {agente.nome}? As fichas permanecem no escritório, sem este agente.</p>
+          <div className="linha-acoes">
+            <button type="button" className="btn pequeno" onClick={() => setConfirmar(false)}>Cancelar</button>
+            <button type="button" className="btn pequeno perigo" disabled={excluindo} onClick={() => void excluir()}>{excluindo ? 'Excluindo…' : 'Excluir agente'}</button>
+          </div>
+        </div>
+      )}
       {podeOperar ? (
         <form onSubmit={mandar}>
           <label htmlFor="pedido">Nova tarefa</label>

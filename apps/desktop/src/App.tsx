@@ -3,6 +3,10 @@ import type { Session } from '@supabase/supabase-js';
 import { configurado, supabase } from './supabase';
 import { Login } from './Login';
 import { Office } from './Office';
+import { ConfirmarEmail } from './ConfirmarEmail';
+import { ehPaginaConfirmacao } from './confirmacaoEmail';
+
+const confirmacao = typeof window !== 'undefined' && ehPaginaConfirmacao(window.location.href);
 
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -15,6 +19,7 @@ export function App() {
     return () => data.subscription.unsubscribe();
   }, []);
 
+  if (configurado && confirmacao) return <ConfirmarEmail />;
   if (!configurado) {
     return (
       <main className="centro">

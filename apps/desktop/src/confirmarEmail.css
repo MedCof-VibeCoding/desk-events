@@ -1,0 +1,15 @@
+.confirmacao-email { min-height: 100dvh; padding: 36px 20px 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 32px; background: var(--bg); }
+.confirmacao-marca { display: flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; font-size: 26px; letter-spacing: -1px; }
+.confirmacao-marca > svg { color: var(--accent); }.confirmacao-marca span { font-weight: 400; }
+.confirmacao-cartao { width: min(480px, 100%); padding: 40px; border: 1px solid var(--line); border-radius: 24px; background: var(--surface); text-align: center; box-shadow: 0 24px 80px #0002; }
+.confirmacao-simbolo { width: 76px; height: 76px; margin: 0 auto 28px; display: grid; place-items: center; border-radius: 24px; color: var(--accent); background: var(--button-secondary-bg); border: 1px solid var(--button-secondary-border); }
+.confirmacao-etapa { font-size: 10px; letter-spacing: 1.8px; font-weight: 700; color: var(--muted); }
+.confirmacao-cartao h1 { margin: 12px 0; font-size: clamp(25px, 5vw, 32px); line-height: 1.2; letter-spacing: -1px; }
+.confirmacao-cartao p { font-size: 14px; color: var(--muted); overflow-wrap: anywhere; line-height: 1.7; }.confirmacao-cartao p strong { color: var(--ink); }
+.confirmacao-continuar { display: flex; align-items: center; justify-content: center; gap: 10px; text-decoration: none; margin-top: 28px; }
+.confirmacao-reenvio { display: grid; gap: 10px; text-align: left; margin-top: 26px; }.confirmacao-reenvio .btn { margin-top: 4px; }.confirmacao-reenvio p { margin: 4px 0; }.confirmacao-reenvio .erro { color: var(--danger); }.confirmacao-reenvio .sucesso { color: var(--ok); }
+.confirmacao-cartao .confirmacao-dica { font-size: 12px; margin: 22px 0 14px; }.confirmacao-voltar { color: var(--accent); font-size: 14px; text-underline-offset: 4px; }.confirmacao-rodape { color: var(--muted); font-size: 12px; text-align: center; }
+.confirmacao-simbolo.validando { animation: pulso-confirmacao 1.4s ease-in-out infinite; }
+@keyframes pulso-confirmacao { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .confirmacao-simbolo.validando { animation: none; } }
+@media (max-width: 480px) { .confirmacao-email { padding: 24px 16px; gap: 24px; }.confirmacao-cartao { padding: 30px 22px; border-radius: 18px; } }
