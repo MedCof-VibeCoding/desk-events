@@ -18,17 +18,26 @@ function escurecer(hex: string) {
   return Number.isNaN(n) ? '#555555' : `#${c(n >> 16)}${c((n >> 8) & 255)}${c(n & 255)}`;
 }
 
-export function Robot({ aparencia, ativo = true, tamanho = 96 }: { aparencia: Aparencia; ativo?: boolean; tamanho?: number }) {
+function paleta(aparencia: Aparencia, ativo: boolean) {
   const cor = /^#[0-9a-fA-F]{6}$/.test(aparencia.cor) ? aparencia.cor : '#2BB3A3';
-  const pal: Record<string, string> = { K: '#1C2030', b: cor, B: escurecer(cor), F: '#151A2A', E: ativo ? '#7DF9FF' : '#4A5568', A: ativo ? '#3DDC84' : '#6B7487', L: ativo ? '#3DDC84' : '#8A93A6' };
+  return { K: '#1C2030', b: cor, B: escurecer(cor), F: '#151A2A', E: ativo ? '#7DF9FF' : '#4A5568', A: ativo ? '#3DDC84' : '#6B7487', L: ativo ? '#3DDC84' : '#8A93A6' } as Record<string, string>;
+}
+
+// Os pixels do robô, para usar dentro de qualquer SVG (cartão ou cena do escritório).
+export function RobotPixels({ aparencia, ativo = true }: { aparencia: Aparencia; ativo?: boolean }) {
+  const pal = paleta(aparencia, ativo);
   const linhas = CORPOS[aparencia.corpo] ?? CORPOS.monitor;
   const px: JSX.Element[] = [];
   linhas.forEach((linha, y) => [...linha].forEach((ch, x) => { if (ch !== '.') px.push(<rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill={pal[ch]} />); }));
   const extra = aparencia.acessorio ? ACESSORIOS[aparencia.acessorio] ?? [] : [];
+  return <>{px}{extra.map(([x, y, w, h, f], i) => <rect key={`a${i}`} x={x} y={y} width={w} height={h} fill={f} />)}</>;
+}
+export const corEscura = (aparencia: Aparencia) => paleta(aparencia, true).B;
+
+export function Robot({ aparencia, ativo = true, tamanho = 96 }: { aparencia: Aparencia; ativo?: boolean; tamanho?: number }) {
   return (
     <svg viewBox="0 0 12 14" width={tamanho} height={(tamanho * 14) / 12} shapeRendering="crispEdges" role="img" aria-label="Robô do agente">
-      {px}
-      {extra.map(([x, y, w, h, f], i) => <rect key={`a${i}`} x={x} y={y} width={w} height={h} fill={f} />)}
+      <RobotPixels aparencia={aparencia} ativo={ativo} />
     </svg>
   );
 }

@@ -1,17 +1,14 @@
 {
-  "name": "@desk-events/desktop",
-  "version": "0.1.0",
+  "name": "@desk-events/web",
+  "version": "0.3.0",
   "private": true,
-
-  "description": "Escritório de Agentes — aplicativo para Windows",
-  "author": "MedCof Eventos",
-  "main": "dist-electron/main.js",
+  "type": "module",
+  "description": "Escritório de Agentes — site",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && tsc -p electron",
-    "typecheck": "tsc --noEmit && tsc -p electron --noEmit",
-    "app": "npm run build && electron .",
-    "dist": "npm run build && electron-builder --win nsis"
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
@@ -22,17 +19,7 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
-    "electron": "^31.3.0",
-    "electron-builder": "^24.13.3",
     "typescript": "^5.5.4",
     "vite": "^5.4.0"
-  },
-  "build": {
-    "appId": "br.com.medcof.deskevents",
-    "productName": "Escritório de Agentes",
-    "directories": { "output": "release" },
-    "files": ["dist/**", "dist-electron/**"],
-    "win": { "target": "nsis" },
-    "nsis": { "oneClick": true, "perMachine": false }
   }
 }

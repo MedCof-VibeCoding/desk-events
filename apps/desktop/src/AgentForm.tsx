@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from 'react';
-import { supabase, type Aparencia, type Autonomia, type Provedor } from './supabase';
+import { useEffect, useState, type FormEvent } from 'react';
+import { supabase, servidor, type Aparencia, type Autonomia, type Provedor } from './supabase';
 import { Robot } from './Robot';
 
 const CORES = ['#2BB3A3', '#8B6CF0', '#F08A3C', '#E05A8A', '#3E6AE0', '#3BAA5C', '#E3A008', '#7A8399'];
@@ -23,6 +23,22 @@ export function AgentForm({ escritorioId, onFechar, onCriado }: { escritorioId: 
   const [autonomia, setAutonomia] = useState<Autonomia>('supervisionado');
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
+  const [modelos, setModelos] = useState<string[]>([]);
+  const [avisoModelo, setAvisoModelo] = useState('');
+
+  // Busca no servidor os modelos disponíveis na conta do provedor escolhido.
+  useEffect(() => {
+    let vivo = true;
+    setModelos([]); setModelo(''); setAvisoModelo('Buscando modelos…');
+    servidor<{ configurado: boolean; modelos: string[] }>(`/api/models?provedor=${provedor}`)
+      .then(r => {
+        if (!vivo) return;
+        setModelos(r.modelos);
+        setAvisoModelo(r.configurado ? (r.modelos.length ? '' : 'Nenhum modelo encontrado; digite o nome.') : 'A chave deste provedor ainda não foi configurada no servidor.');
+      })
+      .catch(e => { if (vivo) setAvisoModelo(`${(e as Error).message} Digite o nome do modelo.`); });
+    return () => { vivo = false; };
+  }, [provedor]);
 
   async function salvar(e: FormEvent) {
     e.preventDefault();
@@ -72,7 +88,15 @@ export function AgentForm({ escritorioId, onFechar, onCriado }: { escritorioId: 
           </div>
           <div>
             <label htmlFor="a-modelo">Nome do modelo</label>
-            <input id="a-modelo" required value={modelo} onChange={e => setModelo(e.target.value)} placeholder="O intermediário do provedor" />
+            {modelos.length > 0 ? (
+              <select id="a-modelo" required value={modelo} onChange={e => setModelo(e.target.value)}>
+                <option value="">Escolha um modelo</option>
+                {modelos.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            ) : (
+              <input id="a-modelo" required value={modelo} onChange={e => setModelo(e.target.value)} placeholder="Nome do modelo" />
+            )}
+            {avisoModelo && <p className="mudo">{avisoModelo}</p>}
           </div>
         </div>
         <label htmlFor="a-auto">Autonomia</label>
