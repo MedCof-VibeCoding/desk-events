@@ -34,7 +34,7 @@ export function PerfilUsuario({ userId, children }: { userId: string; children: 
   if (!perfil && erro) return <main className="centro"><section className="cartao login"><MarcaIcone /><h1>{atualizacaoPendente ? 'Atualização do escritório pendente' : 'Não foi possível abrir seu perfil'}</h1><p className="erro" role="alert">{erro}</p><button className="btn primario" onClick={() => void carregar()}>Tentar novamente</button><button className="link" onClick={() => void supabase.auth.signOut()}>Sair</button></section></main>;
   if (perfil?.aparencia && perfil.nome.trim()) return <>{children(perfil)}</>;
   return <main className="centro perfil-inicial"><form className="cartao" onSubmit={salvar}>
-    <div className="entrada-marca"><MarcaIcone />desk<span>events</span></div>
+    <div className="entrada-marca"><MarcaIcone />DeskCof</div>
     <h1>Quem vai entrar no escritório?</h1><p>Crie seu avatar pessoal. É assim que as outras pessoas vão ver você nas salas.</p>
     <label htmlFor="perfil-nome">Seu nome</label><input id="perfil-nome" required maxLength={80} value={nome} onChange={e => setNome(e.target.value)} autoComplete="name" />
     <div className="perfil-previa"><Robot aparencia={aparencia} tamanho={130} /></div>

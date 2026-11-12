@@ -48,10 +48,10 @@ export function ConfirmarEmail({ emailEnviado }: { emailEnviado?: string }) {
   }
   const sucesso = resultado.estado === 'sucesso', validando = resultado.estado === 'validando', falhou = resultado.estado === 'erro';
   return <main className="confirmacao-email">
-    <a className="confirmacao-marca" href="/" aria-label="Desk Events, início"><MarcaIcone /><strong>desk<span>events</span></strong></a>
+    <a className="confirmacao-marca" href="/" aria-label="DeskCof, início"><MarcaIcone /><strong>DeskCof</strong></a>
     <section className="confirmacao-cartao" aria-labelledby="confirmacao-titulo" aria-busy={validando}>
       <div className={'confirmacao-simbolo' + (validando ? ' validando' : '')}><Icon name={sucesso ? 'check' : falhou ? 'link' : 'inbox'} size={34} /></div>
-      <span className="confirmacao-etapa">SUA CONTA NO DESK EVENTS</span>
+      <span className="confirmacao-etapa">SUA CONTA NO DESKCOF</span>
       <div role="status" aria-live="polite">
         <h1 id="confirmacao-titulo">{sucesso ? 'E-mail confirmado!' : validando ? 'Confirmando seu e-mail…' : falhou ? 'Vamos tentar de novo?' : 'Confira seu e-mail'}</h1>
         <p>{sucesso ? 'Tudo pronto. Seu escritório, seus agentes e suas próximas ideias esperam por você.' : validando ? 'Estamos validando seu link. Só mais um instante.' : falhou ? resultado.mensagem : emailEnviado ? <>Enviamos um link para <strong>{emailEnviado}</strong>. Abra a mensagem e confirme seu e-mail para começar.</> : 'Abra o link recebido por e-mail para concluir seu cadastro. Se precisar, solicite um novo link abaixo.'}</p>

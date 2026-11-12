@@ -8,7 +8,7 @@ let quitting = false;
 function createWindow() {
   win = new BrowserWindow({
     width: 1180, height: 780, minWidth: 900, minHeight: 600,
-    title: 'Escritório de Agentes', backgroundColor: '#141927', autoHideMenuBar: true,
+    title: 'DeskCof', backgroundColor: '#141927', autoHideMenuBar: true,
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true }
   });
   const dev = process.env.VITE_DEV_SERVER_URL;
@@ -21,7 +21,7 @@ function createWindow() {
 
 function createTray() {
   tray = new Tray(nativeImage.createEmpty());
-  tray.setToolTip('Escritório de Agentes');
+  tray.setToolTip('DeskCof');
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Abrir o escritório', click: () => { win?.show(); win?.focus(); } },
     { type: 'separator' },

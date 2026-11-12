@@ -25,7 +25,7 @@ export function App() {
   if (!configurado) {
     return (
       <main className="centro">
-        <h1>Escritório de Agentes</h1>
+        <h1>DeskCof</h1>
         <p className="aviso">Falta configurar o Supabase. Copie <code>.env.example</code> para <code>.env</code> em <code>apps/desktop</code>, preencha a chave e reinicie.</p>
       </main>
     );

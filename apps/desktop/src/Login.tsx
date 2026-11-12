@@ -32,15 +32,15 @@ export function Login() {
   if (emailEnviado) return <ConfirmarEmail emailEnviado={emailEnviado} />;
   return (
     <main className="entrada-workspace">
-      <section className="entrada-apresentacao" aria-label="Desk Events">
-        <div className="entrada-marca"><MarcaIcone />desk<span>events</span></div>
+      <section className="entrada-apresentacao" aria-label="DeskCof">
+        <div className="entrada-marca"><MarcaIcone />DeskCof</div>
         <div><span className="sobretitulo">PESSOAS, IDEIAS E AGENTES</span><h1>Um espaço.<br />Muitas possibilidades.</h1><p>Reúna sua equipe, dê vida aos seus agentes e acompanhe cada entrega no seu escritório virtual.</p></div>
         <div className="entrada-personagens">{PERSONAGENS.slice(0, 3).map((p, i) => <div key={p.id} className={`entrada-personagem p-${i}`}><img src={p.imagem} alt={`Personagem ${p.nome}`} /><span>{['Vamos criar?', 'Cada detalhe conta.', 'Mais uma entrega!'][i]}</span></div>)}</div>
         <p className="entrada-rodape">Seu time conectado. Seu trabalho em movimento.</p>
       </section>
       <section className="entrada-formulario">
       <form className="cartao login" onSubmit={enviar}>
-        <span className="sobretitulo">BEM-VINDO AO DESK EVENTS</span>
+        <span className="sobretitulo">BEM-VINDO AO DESKCOF</span>
         <h2>{modo === 'entrar' ? 'Entre no seu escritório' : 'Seu novo espaço começa aqui'}</h2>
         <p className="mudo">{modo === 'entrar' ? 'Seu time e suas próximas ideias esperam por você.' : 'Crie sua conta para organizar seu time de agentes.'}</p>
         <label htmlFor="email">E-mail</label>

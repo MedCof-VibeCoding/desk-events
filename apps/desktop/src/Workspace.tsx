@@ -53,7 +53,7 @@ export function Workspace(p: Props) {
     <a className="pular-conteudo" href="#conteudo-workspace">Pular para o conteúdo</a>
     <aside className="sidebar-workspace" aria-label="Navegação do escritório">
       {p.salasControle}
-      <button className="marca-workspace" onClick={() => navegar('escritorio')} aria-label="Desk Events — abrir escritório"><span className="marca-simbolo"><MarcaIcone /></span><span>desk<span className="marca-leve">events</span><small>SEU ESPAÇO DE TRABALHO</small></span></button>
+      <button className="marca-workspace" onClick={() => navegar('escritorio')} aria-label="DeskCof — abrir escritório"><span className="marca-simbolo"><MarcaIcone /></span><span>DeskCof<small>SEU ESPAÇO DE TRABALHO</small></span></button>
       <div className="nome-workspace"><span className="avatar-inicial">{p.escritorio.nome.slice(0, 1).toUpperCase()}</span><div><strong>{p.escritorio.nome}</strong><span>{ativos} agentes ativos</span></div></div>
       <nav className="nav-workspace"><span className="sobretitulo">ESPAÇO DE TRABALHO</span>{NAV.map(n => <button key={n.id} className={pagina === n.id && !p.mesa ? 'ativo' : ''} aria-current={pagina === n.id && !p.mesa ? 'page' : undefined} onClick={() => navegar(n.id)}><Icon name={n.icon} /><span>{n.nome}</span>{n.id === 'agentes' && <span className="nav-contador">{p.agentes.length}</span>}</button>)}
         <button className={p.mesa ? 'ativo' : ''} aria-expanded={p.mesa} onClick={p.onMesa}><Icon name="inbox" /><span>Sua mesa</span>{p.pendentes > 0 && <span className="nav-contador pendente">{p.pendentes}</span>}</button>
@@ -82,7 +82,7 @@ export function Workspace(p: Props) {
           <div className="config-card"><h3>Sua conta</h3><p className="mudo">{p.email}</p><button className="btn pequeno" onClick={p.onSair}><Icon name="exit" size={16} />Sair da conta</button></div>
         </section>}
       </main>
-      <footer className="rodape-workspace"><span><MarcaIcone tamanho={20} />Desk Events · {p.escritorio.nome}</span><button onClick={() => navegar('preferencias')}>Personalizar espaço <Icon name="settings" size={14} /></button></footer>
+      <footer className="rodape-workspace"><span><MarcaIcone tamanho={20} />DeskCof · {p.escritorio.nome}</span><button onClick={() => navegar('preferencias')}>Personalizar espaço <Icon name="settings" size={14} /></button></footer>
     </div>
     {p.painel && <div className="painel-workspace">{p.painel}</div>}
     {p.modal}
