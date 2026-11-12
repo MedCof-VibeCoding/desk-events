@@ -50,12 +50,8 @@ begin
     perform pg_advisory_xact_lock(513902);
     select id into sala from public.escritorios where principal;
     if sala is null then
-      select id into sala from public.escritorios where criado_por = new.id order by criado_em limit 1;
-      if sala is null then
-        insert into public.escritorios(nome, criado_por, principal) values('Escritório principal', new.id, true) returning id into sala;
-      else
-        update public.escritorios set principal = true where id = sala;
-      end if;
+      -- Sempre um escritório principal novo: as salas existentes continuam sendo pessoais.
+      insert into public.escritorios(nome, criado_por, principal) values('Escritório principal', new.id, true) returning id into sala;
     end if;
     insert into public.membros(escritorio_id, user_id, papel) values(sala, new.id, 'dono')
       on conflict(escritorio_id, user_id) do update set papel = 'dono';

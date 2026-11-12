@@ -44,9 +44,10 @@ export function navegadorComPasta(): boolean {
  * Liga a ponte nesta aba, na pasta já autorizada ou numa pasta nova.
  * Devolve o nome da pasta, ou null se a pessoa cancelar o seletor.
  */
-export async function ligarPonte(userId: string, escritorioId: string): Promise<string | null> {
-  if (ativa) return ativa.raiz.name;
-  const raiz = await escolherPasta();
+export async function ligarPonte(userId: string, escritorioId: string, novaPasta = false): Promise<string | null> {
+  if (ativa && !novaPasta) return ativa.raiz.name;
+  const raiz = await escolherPasta(novaPasta);
+  if (raiz && ativa) parar(ativa);
   if (!raiz) return null;
   const token = await tokenAtual();
   if (!token) throw new Error('Faça login para continuar.');
@@ -88,9 +89,9 @@ export async function desligarPonte(): Promise<void> {
 /**
  * Pede a pasta. Reusa a última autorização; se a pessoa recusar, abre o seletor.
  */
-async function escolherPasta(): Promise<FileSystemDirectoryHandle | null> {
+async function escolherPasta(novaPasta = false): Promise<FileSystemDirectoryHandle | null> {
   if (!navegadorComPasta()) throw new Error('Este navegador não deixa escolher uma pasta. Use Chrome ou Edge, ou ligue pelo terminal com: npm run ponte');
-  if (guardada) {
+  if (guardada && !novaPasta) {
     try {
       if (await guardada.requestPermission({ mode: 'readwrite' }) === 'granted') return guardada;
     } catch { guardada = null; }

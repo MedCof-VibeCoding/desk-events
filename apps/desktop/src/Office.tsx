@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase, pode, type Agente, type Escritorio, type Papel } from './supabase';
 import { Workspace } from './Workspace';
@@ -9,6 +9,8 @@ import type { Perfil, SalaAcesso } from './social';
 import { useSalaSocial } from './useSalaSocial';
 import { AcessosSala } from './AcessosSala';
 import { SINAL_PONTE_MS, desligarPonte, ligarPonte, navegadorComPasta } from './ponteLocal';
+import { MeuComputador } from './MeuComputador';
+import './extras.css';
 
 
 export function Office({ session, perfil }: { session: Session; perfil: Perfil }) {
@@ -17,7 +19,6 @@ export function Office({ session, perfil }: { session: Session; perfil: Perfil }
   const [agentes, setAgentes] = useState<Agente[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
-  const [nomeNovo, setNomeNovo] = useState('');
   const [criando, setCriando] = useState(false);
   const [editando, setEditando] = useState<Agente | null>(null);
   const [aberto, setAberto] = useState<string | null>(null);
@@ -27,8 +28,12 @@ export function Office({ session, perfil }: { session: Session; perfil: Perfil }
   const [ponteLigada, setPonteLigada] = useState(false);
   const [pastaPonte, setPastaPonte] = useState<string | null>(null);
   const [ligando, setLigando] = useState(false);
-  const [salas, setSalas] = useState<SalaAcesso[]>([]), [novaSala, setNovaSala] = useState(false), [salvandoSala, setSalvandoSala] = useState(false);
+  const [salas, setSalas] = useState<SalaAcesso[]>([]);
+  const [computador, setComputador] = useState(false);
+  const [erroPc, setErroPc] = useState('');
   const salaAtual = useRef<string | null>(null);
+  // A sala pessoal desta pessoa, criada pelo banco quando o perfil fica completo.
+  const minhaSala = useRef<string | null>(null);
   const social = useSalaSocial(escritorio?.id, perfil);
 
   const carregarAgentes = useCallback(async (escId: string) => {
@@ -52,14 +57,18 @@ export function Office({ session, perfil }: { session: Session; perfil: Perfil }
 
   const carregar = useCallback(async () => {
     setCarregando(true); setErro('');
+    if (!minhaSala.current) {
+      const { data: sala } = await supabase.rpc('minha_sala');
+      if (typeof sala === 'string') minhaSala.current = sala;
+    }
     const [salasRes, membrosRes] = await Promise.all([
-      supabase.from('escritorios').select('id,nome,pausado,principal,criado_por').order('principal', { ascending: false }).order('nome'),
+      supabase.from('escritorios').select('id,nome,pausado,principal,pessoal,criado_por').order('principal', { ascending: false }).order('nome'),
       supabase.from('membros').select('escritorio_id,papel').eq('user_id', session.user.id)
     ]);
     if (salasRes.error || membrosRes.error) { setErro('Não foi possível carregar suas salas.'); setCarregando(false); return; }
     const lista = (salasRes.data ?? []).map(s => ({ ...s, papel: (membrosRes.data?.find(m => m.escritorio_id === s.id)?.papel ?? 'leitor') as Papel }));
     setSalas(lista);
-    const escolhida = lista.find(s => s.id === salaAtual.current) ?? lista[0];
+    const escolhida = lista.find(s => s.id === salaAtual.current) ?? lista.find(s => s.id === minhaSala.current) ?? lista.find(s => s.pessoal && s.criado_por === session.user.id) ?? lista[0];
     if (escolhida) { salaAtual.current = escolhida.id; setEscritorio(escolhida); setPapel(escolhida.papel); await Promise.all([carregarAgentes(escolhida.id), carregarOcupados(escolhida.id), contarPendentes(escolhida.id)]); }
     else { setEscritorio(null); setPapel(null); setAgentes([]); }
     setCarregando(false);
@@ -94,19 +103,21 @@ export function Office({ session, perfil }: { session: Session; perfil: Perfil }
     return () => { supabase.removeChannel(canal); };
   }, [escritorio, carregarAgentes, carregarOcupados, contarPendentes]);
 
-  async function ligar() {
-    if (!escritorio || ligando) return;
-    setLigando(true); setErro('');
+  // A ponte é da pessoa, não da sala: fica registrada na sala pessoal e continua ligada ao trocar de sala.
+  async function ligar(novaPasta = false) {
+    const sala = minhaSala.current;
+    if (!sala || ligando) return;
+    setLigando(true); setErroPc('');
     try {
-      const pasta = await ligarPonte(session.user.id, escritorio.id);
+      const pasta = await ligarPonte(session.user.id, sala, novaPasta);
       if (pasta) { setPastaPonte(pasta); setPonteLigada(true); }
-    } catch (e) { setErro(e instanceof Error ? e.message : 'Não foi possível ligar a ponte.'); }
+    } catch (e) { setErroPc(e instanceof Error ? e.message : 'Não foi possível conectar a pasta.'); }
     setLigando(false);
   }
 
   async function desligar() {
     try { await desligarPonte(); setPastaPonte(null); setPonteLigada(false); }
-    catch (e) { setErro(e instanceof Error ? e.message : 'Não foi possível desligar a ponte.'); }
+    catch (e) { setErroPc(e instanceof Error ? e.message : 'Não foi possível desconectar.'); }
   }
 
   async function sair() {
@@ -114,18 +125,8 @@ export function Office({ session, perfil }: { session: Session; perfil: Perfil }
     await supabase.auth.signOut();
   }
 
-  async function criarEscritorio(e: FormEvent) {
-    e.preventDefault();
-    if (salvandoSala || !nomeNovo.trim()) return;
-    setSalvandoSala(true);
-    const { data, error } = await supabase.from('escritorios').insert({ nome: nomeNovo.trim() }).select('id').single();
-    if (error) setErro(error.message); else { salaAtual.current = data.id; setNomeNovo(''); setNovaSala(false); await carregar(); }
-    setSalvandoSala(false);
-  }
-
   async function trocarSala(id: string) {
     if (id === escritorio?.id) return;
-    await desligarPonte().catch(() => {}); setPastaPonte(null); setPonteLigada(false);
     setCriando(false); setEditando(null); setAberto(null); setMesa(false); setAgentes([]); setOcupados(new Set());
     salaAtual.current = id; await carregar();
   }
@@ -135,15 +136,13 @@ export function Office({ session, perfil }: { session: Session; perfil: Perfil }
   if (!escritorio) {
     return (
       <main className="centro">
-        <form className="cartao login" onSubmit={criarEscritorio}>
-          <h1>Criar o escritório</h1>
-          <p className="mudo">Você ainda não participa de nenhum escritório. Quem cria vira dono e convida o time depois.</p>
-          <label htmlFor="nome">Nome do escritório</label>
-          <input id="nome" required maxLength={80} value={nomeNovo} onChange={e => setNomeNovo(e.target.value)} placeholder="MedCof Eventos" />
+        <div className="cartao login">
+          <h1>Preparando sua sala</h1>
+          <p className="mudo">Sua sala é criada assim que o seu e-mail é confirmado e o seu perfil está completo.</p>
           {erro && <p className="erro" role="alert">{erro}</p>}
-          <button className="btn primario">Criar escritório</button>
+          <button className="btn primario" onClick={() => void carregar()}>Tentar de novo</button>
           <button type="button" className="link" onClick={() => supabase.auth.signOut()}>Sair</button>
-        </form>
+        </div>
       </main>
     );
   }
@@ -151,7 +150,25 @@ export function Office({ session, perfil }: { session: Session; perfil: Perfil }
   const selecionado = agentes.find(a => a.id === aberto);
   return <Workspace escritorio={escritorio} papel={papel} userId={session.user.id} email={session.user.email ?? ''}
     key={escritorio.id} perfil={perfil} social={social}
-    salasControle={<div className="salas-controle"><label htmlFor="sala-atual">Onde você está</label><select id="sala-atual" value={escritorio.id} onChange={e => void trocarSala(e.target.value)}>{salas.map(s => <option value={s.id} key={s.id}>{s.principal ? '🏢 ' : ''}{s.nome}</option>)}</select><button className="btn" onClick={() => setNovaSala(!novaSala)}>+ Minha sala</button>{novaSala && <form className="salas-nova" onSubmit={criarEscritorio}><label htmlFor="nova-sala">Nome da nova sala</label><input id="nova-sala" required maxLength={80} value={nomeNovo} onChange={e => setNomeNovo(e.target.value)} placeholder="Minha equipe" /><button className="btn primario" disabled={salvandoSala}>{salvandoSala ? 'Criando…' : 'Criar sala privada'}</button></form>}</div>}
+    salasControle={<div className="salas-controle">
+      <span className="rotulo-sala" id="onde-estou">Onde você está</span>
+      <div className="salas-alternar" role="group" aria-labelledby="onde-estou">
+        <button aria-pressed={escritorio.id === minhaSala.current} disabled={!minhaSala.current} onClick={() => minhaSala.current && void trocarSala(minhaSala.current)}>Minha sala</button>
+        <button aria-pressed={!!salas.find(s => s.principal && s.id === escritorio.id)} disabled={!salas.some(s => s.principal)} onClick={() => { const pr = salas.find(s => s.principal); if (pr) void trocarSala(pr.id); }}>Escritório principal</button>
+      </div>
+      {salas.some(s => !s.principal && s.id !== minhaSala.current) && (
+        <><label htmlFor="outras-salas" className="so-leitor">Outras salas</label>
+        <select id="outras-salas" className="salas-outras" value={salas.some(s => s.id === escritorio.id && !s.principal && s.id !== minhaSala.current) ? escritorio.id : ''} onChange={e => e.target.value && void trocarSala(e.target.value)}>
+          <option value="">Outras salas em que você participa…</option>
+          {salas.filter(s => !s.principal && s.id !== minhaSala.current).map(s => <option value={s.id} key={s.id}>{s.nome}</option>)}
+        </select></>
+      )}
+      <button className={'atalho-computador' + (ponteLigada ? ' ligado' : '')} onClick={() => { setErroPc(''); setComputador(true); }}>
+        <span className="luz" aria-hidden="true" />
+        <strong>Meu computador</strong>
+        <span>{pastaPonte ? `Pasta: ${pastaPonte}` : ponteLigada ? 'Conectado' : 'Conectar uma pasta'}</span>
+      </button>
+    </div>}
     acessos={salas.find(s => s.id === escritorio.id) ? <AcessosSala sala={salas.find(s => s.id === escritorio.id)!} perfil={perfil} /> : null}
     agentes={agentes} ocupados={ocupados} selecionado={aberto} pendentes={pendentes} mesa={mesa} erro={erro}
     onAgente={id => { setMesa(false); setAberto(id); }}
@@ -159,16 +176,10 @@ export function Office({ session, perfil }: { session: Session; perfil: Perfil }
     onEditar={agente => { setCriando(false); setEditando(agente); }}
     onMesa={() => { setMesa(!mesa); setAberto(null); }}
     onFecharPainel={() => { setMesa(false); setAberto(null); }} onSair={() => void sair()}
-    ponte={<>
-      {pode(papel, 'operador') ? pastaPonte ? <>
-        <span className="ponte ligada" title={pastaPonte}>Ponte local ligada · <span className="pasta">{pastaPonte}</span></span>
-        <button className="btn" onClick={() => void desligar()}>Desligar</button>
-      </> : ponteLigada ? <span className="ponte ligada">Ponte local ligada</span> :
-        <button className="ponte" disabled={ligando} title={navegadorComPasta() ? 'Deixa os agentes trabalharem em arquivos de uma pasta deste computador.' : 'Use Chrome ou Edge para escolher uma pasta.'} onClick={() => void ligar()}>{ligando ? 'Ligando a ponte…' : 'Conectar pasta deste computador'}</button>
-      : <span className={'ponte' + (ponteLigada ? ' ligada' : '')}>Ponte local {ponteLigada ? 'ligada' : 'desligada'}</span>}
-    </>}
+    ponte={<button className={'ponte' + (ponteLigada ? ' ligada' : '')} onClick={() => { setErroPc(''); setComputador(true); }}>{ponteLigada ? `Conectado${pastaPonte ? ` · ${pastaPonte}` : ''}` : 'Abrir Meu computador'}</button>}
     painel={mesa ? <Mesa escritorioId={escritorio.id} podeOperar={pode(papel, 'operador')} onFechar={() => setMesa(false)} onMudou={setPendentes} /> : selecionado ?
       <AgentPanel key={selecionado.id} agente={selecionado} podeOperar={pode(papel, 'operador')} podeEditar={pode(papel, 'editor')} onFechar={() => setAberto(null)} onEditar={() => { setCriando(false); setEditando(selecionado); }} onExcluido={() => { const id = aberto; setAgentes(lista => lista.filter(a => a.id !== id)); setOcupados(atual => { const prox = new Set(atual); if (id) prox.delete(id); return prox; }); setEditando(atual => atual?.id === id ? null : atual); setAberto(null); }} /> : null}
-    modal={(criando || editando) ? <AgentForm key={editando?.id ?? 'novo'} escritorioId={escritorio.id} agente={editando ?? undefined} coresUsadas={agentes.filter(a => a.id !== editando?.id).map(a => a.aparencia.cor)} onFechar={() => { setCriando(false); setEditando(null); }} onSalvo={() => { setCriando(false); setEditando(null); void carregarAgentes(escritorio.id); }} /> : null}
+    modal={computador ? <MeuComputador ligado={ponteLigada} pasta={pastaPonte} ligando={ligando} podeOperar={!!minhaSala.current} navegadorOk={navegadorComPasta()} erro={erroPc}
+      onLigar={nova => void ligar(nova)} onDesligar={() => void desligar()} onFechar={() => setComputador(false)} /> : (criando || editando) ? <AgentForm key={editando?.id ?? 'novo'} escritorioId={escritorio.id} agente={editando ?? undefined} coresUsadas={agentes.filter(a => a.id !== editando?.id).map(a => a.aparencia.cor)} onFechar={() => { setCriando(false); setEditando(null); }} onSalvo={() => { setCriando(false); setEditando(null); void carregarAgentes(escritorio.id); }} /> : null}
   />;
 }

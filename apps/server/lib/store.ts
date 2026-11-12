@@ -1,5 +1,5 @@
 import { admin } from './core.js';
-import type { AgenteRow, AprovacaoRow, FichaRow, PassoRow, Store } from './loop.js';
+import type { AgenteRow, AprovacaoRow, FichaRow, PassoRow, SkillRow, Store } from './loop.js';
 
 const AGENTE = 'id, nome, cargo, instrucoes, provedor, modelo, autonomia, max_passos, ativo';
 
@@ -21,6 +21,10 @@ export function bancoStore(): Store {
     async addAprovacao(f, agenteId, pedido) {
       const { error } = await db.from('aprovacoes').insert({ ficha_id: f.id, escritorio_id: f.escritorio_id, agente_id: agenteId, pedido });
       if (error) throw new Error(error.message);
+    },
+    async skills(agenteId) {
+      const { data } = await db.from('agente_skill').select('skills(titulo, descricao, instrucoes)').eq('agente_id', agenteId);
+      return ((data ?? []) as unknown as { skills: SkillRow | null }[]).map(l => l.skills).filter((k): k is SkillRow => !!k);
     },
     async local(f, ferramenta, args) {
       if (!f.criado_por) return 'Esta ficha não tem uma pessoa responsável, então não há computador onde trabalhar.';
