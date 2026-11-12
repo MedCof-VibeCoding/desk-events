@@ -3,14 +3,18 @@ import * as THREE from 'three';
 import type { Agente } from './supabase';
 import { Mundo } from './mundo3d';
 import { OfficeScene } from './OfficeScene';
+import { Pessoas3D } from './pessoas3d';
+import type { MensagemCafe, PessoaPresente, Zona } from './social';
 
-interface Props { agentes: Agente[]; ocupados: Set<string>; selecionado: string | null; onEscolher: (id: string) => void; animar?: boolean }
+interface Props { agentes: Agente[]; ocupados: Set<string>; selecionado: string | null; onEscolher: (id: string) => void; animar?: boolean; pessoas?: PessoaPresente[]; baloes?: Record<string, MensagemCafe>; userId?: string; zona?: Zona; onZona?: (zona: Zona) => void }
 
 // Escritório em 3D isométrico. Arraste para mover a câmera e use a roda do mouse para aproximar.
 export function Office3D(props: Props) {
   const caixa = useRef<HTMLDivElement>(null);
   const etiquetas = useRef(new Map<string, HTMLButtonElement>());
   const mundo = useRef<Mundo | null>(null);
+  const pessoas3d = useRef<Pessoas3D | null>(null);
+  const etiquetasPessoas = useRef(new Map<string, HTMLDivElement>());
   const dados = useRef(props); dados.current = props;
   const [sem3d, setSem3d] = useState(false);
   const controle = useRef<(acao: string) => void>(() => {});
@@ -26,6 +30,8 @@ export function Office3D(props: Props) {
     el.prepend(renderer.domElement);
 
     const m = new Mundo(); mundo.current = m;
+    const pessoas = new Pessoas3D(m.scene); pessoas3d.current = pessoas;
+    pessoas.sync(dados.current.pessoas ?? []);
     m.sync(dados.current.agentes, dados.current.ocupados, dados.current.selecionado);
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 200);
     const alvo = new THREE.Vector3(0, 0, 0.4), DIR = new THREE.Vector3(1, 1.05, 1).normalize().multiplyScalar(60);
@@ -83,8 +89,14 @@ export function Office3D(props: Props) {
     const laco = (agora: number) => {
       const dt = Math.min(0.05, (agora - antes) / 1000); antes = agora;
       m.passo(dt, parado || dados.current.animar === false);
+      pessoas.passo(dt, parado || dados.current.animar === false);
       renderer.render(m.scene, camera);
       const w = el.clientWidth, h = el.clientHeight;
+      for (const [id, b] of etiquetasPessoas.current) {
+        if (!pessoas.etiqueta(id, v)) continue;
+        v.project(camera);
+        b.style.transform = `translate(-50%, -100%) translate(${((v.x + 1) / 2) * w}px, ${((1 - v.y) / 2) * h}px)`;
+      }
       for (const [id, b] of etiquetas.current) {
         if (!m.etiqueta(id, v)) continue;
         v.project(camera);
@@ -97,17 +109,23 @@ export function Office3D(props: Props) {
 
     return () => {
       cancelAnimationFrame(quadro); ro.disconnect();
-      m.destruir(); mundo.current = null; controle.current = () => {};
+      pessoas.destruir(); pessoas3d.current = null; m.destruir(); mundo.current = null; controle.current = () => {};
       renderer.dispose(); renderer.domElement.remove();
     };
   }, []);
 
   useEffect(() => { mundo.current?.sync(props.agentes, props.ocupados, props.selecionado); }, [props.agentes, props.ocupados, props.selecionado]);
+  useEffect(() => { pessoas3d.current?.sync(props.pessoas ?? []); }, [props.pessoas]);
+  useEffect(() => { if (props.zona) controle.current(props.zona); }, [props.zona]);
 
   if (sem3d) return <OfficeScene {...props} />;
   return (
     <div className="palco3d" ref={caixa} aria-label="Escritório em 3D">
       <div className="etiquetas">
+        {(props.pessoas ?? []).map(p => <div key={p.user_id} ref={el => { if (el) etiquetasPessoas.current.set(p.user_id, el); else etiquetasPessoas.current.delete(p.user_id); }} className={'etiqueta etiqueta-pessoa' + (p.user_id === props.userId ? ' eu' : '')}>
+          {props.baloes?.[p.user_id] && <span className="balao-pensamento">{props.baloes[p.user_id].destinatario && <small>Conversa privada</small>}{props.baloes[p.user_id].texto}</span>}
+          {p.nome}{p.user_id === props.userId ? ' · você' : ''}
+        </div>)}
         {props.agentes.map(a => (
           <button key={a.id} ref={el => { if (el) etiquetas.current.set(a.id, el); else etiquetas.current.delete(a.id); }}
             className={'etiqueta' + (props.selecionado === a.id ? ' escolhida' : '')} style={{ borderLeftColor: a.aparencia.cor }}
@@ -117,7 +135,7 @@ export function Office3D(props: Props) {
           </button>
         ))}
       </div>
-      <div className="zonas-escritorio" role="group" aria-label="Áreas do escritório">{[{ id: 'geral', nome: 'Visão geral' }, { id: 'reuniao', nome: 'Sala de reunião' }, { id: 'cafe', nome: 'Café' }].map(z => <button key={z.id} aria-pressed={zona === z.id} onClick={() => controle.current(z.id)}>{z.nome}</button>)}</div>
+      <div className="zonas-escritorio" role="group" aria-label="Áreas do escritório">{[{ id: 'geral', nome: 'Visão geral' }, { id: 'reuniao', nome: 'Sala de reunião' }, { id: 'cafe', nome: 'Café' }].map(z => <button key={z.id} aria-pressed={zona === z.id} onClick={() => props.onZona ? props.onZona(z.id as Zona) : controle.current(z.id)}>{z.nome}</button>)}</div>
       <div className="controles-camera" role="group" aria-label="Controles da câmera"><button aria-label="Afastar câmera" onClick={() => controle.current('menos')}>−</button><button onClick={() => controle.current('geral')}>Centralizar</button><button aria-label="Aproximar câmera" onClick={() => controle.current('mais')}>+</button></div>
       <p className="dica3d">Arraste para explorar · role para aproximar</p>
     </div>

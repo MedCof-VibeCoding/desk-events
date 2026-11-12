@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { supabase } from './supabase';
 import { Icon } from './Icon';
+import { MarcaIcone } from './MarcaIcone';
 import { CAMINHO_CONFIRMACAO, confirmarEmail, lerLinkConfirmacao, mensagemConfirmacao, urlConfirmacao, type ResultadoConfirmacao } from './confirmacaoEmail';
 import './confirmarEmail.css';
 
@@ -47,7 +48,7 @@ export function ConfirmarEmail({ emailEnviado }: { emailEnviado?: string }) {
   }
   const sucesso = resultado.estado === 'sucesso', validando = resultado.estado === 'validando', falhou = resultado.estado === 'erro';
   return <main className="confirmacao-email">
-    <a className="confirmacao-marca" href="/" aria-label="Desk Events, início"><Icon name="office" size={28} /><strong>desk<span>events</span></strong></a>
+    <a className="confirmacao-marca" href="/" aria-label="Desk Events, início"><MarcaIcone /><strong>desk<span>events</span></strong></a>
     <section className="confirmacao-cartao" aria-labelledby="confirmacao-titulo" aria-busy={validando}>
       <div className={'confirmacao-simbolo' + (validando ? ' validando' : '')}><Icon name={sucesso ? 'check' : falhou ? 'link' : 'inbox'} size={34} /></div>
       <span className="confirmacao-etapa">SUA CONTA NO DESK EVENTS</span>

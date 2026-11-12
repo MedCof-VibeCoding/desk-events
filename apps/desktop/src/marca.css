@@ -1,0 +1,2 @@
+.icone-marca { display: block; flex-shrink: 0; object-fit: contain; border-radius: 20%; }
+.marca-simbolo .icone-marca { width: 100%; height: 100%; }

@@ -1,3 +1,12 @@
 {
-  "rewrites": [{ "source": "/confirmar-email", "destination": "/index.html" }]
+  "rewrites": [
+    {
+      "source": "/confirmar-email",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/google-agenda",
+      "destination": "/index.html"
+    }
+  ]
 }

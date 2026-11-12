@@ -3,6 +3,8 @@ import type { Session } from '@supabase/supabase-js';
 import { configurado, supabase } from './supabase';
 import { Login } from './Login';
 import { Office } from './Office';
+import { GoogleRetorno } from './GoogleRetorno';
+import { PerfilUsuario } from './PerfilUsuario';
 import { ConfirmarEmail } from './ConfirmarEmail';
 import { ehPaginaConfirmacao } from './confirmacaoEmail';
 
@@ -29,5 +31,6 @@ export function App() {
     );
   }
   if (!pronto) return <main className="centro"><p>Abrindo o escritório…</p></main>;
-  return session ? <Office session={session} /> : <Login />;
+  if (session && window.location.pathname === '/google-agenda') return <GoogleRetorno />;
+  return session ? <PerfilUsuario key={session.user.id} userId={session.user.id}>{perfil => <Office session={session} perfil={perfil} />}</PerfilUsuario> : <Login />;
 }

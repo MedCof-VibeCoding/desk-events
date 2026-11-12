@@ -7,7 +7,7 @@ const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
 export const configurado = Boolean(url && key);
 export const supabase = createClient(url || 'https://nao-configurado.supabase.co', key || 'nao-configurado', {
-  auth: { detectSessionInUrl: typeof window === 'undefined' || !ehPaginaConfirmacao(window.location.href) }
+  auth: { detectSessionInUrl: typeof window === 'undefined' || (!ehPaginaConfirmacao(window.location.href) && window.location.pathname !== '/google-agenda') }
 });
 
 export type Papel = 'leitor' | 'operador' | 'editor' | 'dono';

@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { supabase } from './supabase';
 import { PERSONAGENS } from './personagens';
-import { Icon } from './Icon';
+import { MarcaIcone } from './MarcaIcone';
 import { ConfirmarEmail } from './ConfirmarEmail';
 import { urlConfirmacao } from './confirmacaoEmail';
 import './workspace.css';
@@ -33,7 +33,7 @@ export function Login() {
   return (
     <main className="entrada-workspace">
       <section className="entrada-apresentacao" aria-label="Desk Events">
-        <div className="entrada-marca"><Icon name="office" size={28} />desk<span>events</span></div>
+        <div className="entrada-marca"><MarcaIcone />desk<span>events</span></div>
         <div><span className="sobretitulo">PESSOAS, IDEIAS E AGENTES</span><h1>Um espaço.<br />Muitas possibilidades.</h1><p>Reúna sua equipe, dê vida aos seus agentes e acompanhe cada entrega no seu escritório virtual.</p></div>
         <div className="entrada-personagens">{PERSONAGENS.slice(0, 3).map((p, i) => <div key={p.id} className={`entrada-personagem p-${i}`}><img src={p.imagem} alt={`Personagem ${p.nome}`} /><span>{['Vamos criar?', 'Cada detalhe conta.', 'Mais uma entrega!'][i]}</span></div>)}</div>
         <p className="entrada-rodape">Seu time conectado. Seu trabalho em movimento.</p>

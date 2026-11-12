@@ -33,12 +33,14 @@ export async function usuario(request: Request): Promise<User> {
   const token = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
   if (!token) throw new HttpError(401, 'Faça login para continuar.');
   const { data, error } = await admin().auth.getUser(token);
-  if (error || !data.user) throw new HttpError(401, 'Sessão inválida. Entre de novo.');
+  if (error || !data.user || !data.user.email_confirmed_at) throw new HttpError(401, 'Sessão inválida. Confirme seu e-mail e entre de novo.');
   return data.user;
 }
 
 const ORDEM = ['leitor', 'operador', 'editor', 'dono'];
 export async function exigirPapel(userId: string, escritorioId: string, minimo: string): Promise<void> {
+  const { data: perfil } = await admin().from('perfis').select('nome,aparencia').eq('user_id', userId).maybeSingle();
+  if (!perfil?.aparencia || !perfil.nome.trim()) throw new HttpError(403, 'Crie seu avatar pessoal para continuar.');
   const { data } = await admin().from('membros').select('papel').eq('escritorio_id', escritorioId).eq('user_id', userId).maybeSingle();
   if (!data || ORDEM.indexOf(data.papel) < ORDEM.indexOf(minimo)) throw new HttpError(403, 'Seu papel neste escritório não permite essa ação.');
 }

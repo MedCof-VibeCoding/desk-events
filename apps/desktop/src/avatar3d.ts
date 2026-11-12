@@ -4,6 +4,9 @@ import { clone } from 'three/addons/utils/SkeletonUtils.js';
 
 export type MovimentoAvatar = 'Idle' | 'Walk' | 'Type' | 'Wave';
 
+// Velocidade do pé apoiado no clipe Walk, com o avatar normalizado para 1,85 m.
+const VELOCIDADE_PASSADA = 0.5;
+
 function liberarModelo(root: THREE.Object3D) {
   root.traverse(o => {
     const mesh = o as THREE.Mesh;
@@ -44,13 +47,14 @@ export class AvatarAnimado {
     this.passo(0, 'Idle');
   }
   private clips: THREE.AnimationClip[];
-  passo(dt: number, movimento: MovimentoAvatar, parado = false) {
+  passo(dt: number, movimento: MovimentoAvatar, parado = false, velocidade = VELOCIDADE_PASSADA) {
     const clip = this.clips.find(c => c.name === (parado ? 'Idle' : movimento));
     if (clip && this.atual?.getClip() !== clip) {
       const anterior = this.atual;
       this.atual = this.mixer.clipAction(clip).reset().play();
       if (anterior) { anterior.fadeOut(0.18); this.atual.fadeIn(0.18); }
     }
+    this.atual?.setEffectiveTimeScale(clip?.name === 'Walk' ? Math.max(0, velocidade) / VELOCIDADE_PASSADA : 1);
     if (parado && this.atual) { this.atual.time = 0; this.mixer.update(0); }
     else this.mixer.update(dt);
   }

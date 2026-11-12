@@ -9,7 +9,7 @@ const MESAS_X = [-5.4, -1.8, 1.8, 5.4];
 const FILEIRAS_Z = [-1.5, 1.5, 4.5];
 const FAIXAS = [-3.2, 0.3, 3.3, 6.3];
 const PONTOS = [{ x: -8.4, z: -3.2 }, { x: 7.6, z: -3.2 }, { x: 0, z: -3.2 }, { x: 8.4, z: 0.3 }, { x: 7.4, z: 6.3 }, { x: -7.6, z: 6.3 }, { x: -8.2, z: 3.3 }];
-const VEL = 1.7;
+const VEL = 0.8;
 
 type P = { x: number; z: number };
 export const mesaDe = (i: number): P => ({ x: MESAS_X[i % 4], z: FILEIRAS_Z[Math.floor(i / 4) % 3] });
@@ -121,12 +121,15 @@ export class Mundo {
     const ligadas = new Set<number>();
     for (const b of this.bonecos.values()) {
       const pos = b.grupo.position, lar = casaDe(b.indice), ativo = b.grupo.userData.ativo !== false;
+      const xAntes = pos.x, zAntes = pos.z;
       b.fase += dt;
       if (parado) { pos.set(lar.x, 0, lar.z); b.rota = []; }
-      else if (b.rota.length) {
+      // A imagem de espera não tem articulações: só deslocar o modelo animado.
+      else if (ativo && b.animado && b.rota.length) {
         const alvo = b.rota[0], dx = alvo.x - pos.x, dz = alvo.z - pos.z, d = Math.hypot(dx, dz), anda = VEL * dt;
-        if (d <= anda) { pos.x = alvo.x; pos.z = alvo.z; b.rota.shift(); } else { pos.x += (dx / d) * anda; pos.z += (dz / d) * anda; b.grupo.rotation.y = Math.atan2(dx, dz); }
-      } else if (!b.ocupado && ativo) {
+        if (d > 0) b.grupo.rotation.y = Math.atan2(dx, dz);
+        if (d <= anda) { pos.x = alvo.x; pos.z = alvo.z; b.rota.shift(); } else { pos.x += (dx / d) * anda; pos.z += (dz / d) * anda; }
+      } else if (!b.ocupado && ativo && b.animado) {
         b.espera -= dt;
         if (b.espera <= 0) {
           const r = Math.random();
@@ -134,11 +137,12 @@ export class Mundo {
           b.rota = tracar({ x: pos.x, z: pos.z }, destino); b.espera = 2 + Math.random() * 6;
         }
       }
-      const andando = b.rota.length > 0, naMesa = !andando && b.ocupado;
+      const velocidade = dt > 0 && !parado ? Math.hypot(pos.x - xAntes, pos.z - zAntes) / dt : 0;
+      const andando = velocidade > 0, naMesa = !andando && !b.rota.length && b.ocupado;
       if (naMesa) { b.grupo.rotation.y = Math.PI; ligadas.add(b.indice); }
       if (b.festa > 0) b.festa -= dt;
-      b.corpo.position.y = parado ? 0 : andando ? Math.abs(Math.sin(b.fase * 11)) * 0.05 : naMesa ? Math.sin(b.fase * 9) * 0.02 : b.festa > 0 ? Math.abs(Math.sin(b.fase * 9)) * 0.35 : Math.sin(b.fase * 2) * 0.015;
-      if (b.animado) { b.corpo.position.y = 0; b.animado.passo(dt, andando ? 'Walk' : naMesa ? 'Type' : b.festa > 0 ? 'Wave' : 'Idle', parado || !ativo); }
+      b.corpo.position.y = 0;
+      if (b.animado) b.animado.passo(dt, andando ? 'Walk' : naMesa ? 'Type' : b.festa > 0 ? 'Wave' : 'Idle', parado || !ativo, velocidade);
     }
     for (const [slot, p] of this.postos) p.tela.emissive.set(ligadas.has(slot) ? (parado || Math.sin(performance.now() / 160) > 0 ? '#2FBF6E' : '#1F8F52') : '#000000');
   }

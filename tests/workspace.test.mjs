@@ -14,6 +14,83 @@ await build({ stdin: { contents: `export * from './apps/desktop/src/colaboracao'
 const { linkReuniao, erroColaboracao, lerPreferencias, PERSONAGENS, personagemDe, avatarDe, normalizarAparencia, AvatarAnimado, ModelosAvatar, GLTFLoader, Mundo, AgentForm, Workspace } = createRequire(import.meta.url)(arquivo);
 GLTFLoader.prototype.loadAsync = async () => { throw Error('Offline test'); };
 after(async () => { await rm(arquivo, { force: true }); });
+
+test('a política da página permite buscar os modelos 3D no próprio site', async () => {
+  const html = await readFile('apps/desktop/index.html', 'utf8');
+  const politica = html.match(/http-equiv="Content-Security-Policy" content="([^"]+)"/)[1];
+  const conexoes = politica.split(';').find(d => d.trim().startsWith('connect-src')).trim().split(/\s+/);
+  assert.ok(conexoes.includes("'self'"), 'GLTFLoader usa fetch: imagens permitidas não bastam para carregar GLBs');
+  assert.ok(!conexoes.includes('*'), 'não liberar conexões para qualquer origem');
+});
+
+test('as 36 variações alternam os pés e deformam a malha durante a caminhada', async () => {
+  for (const personagem of PERSONAGENS) for (const versao of ['m', 'f']) for (const look of ['casual', 'escritorio', 'evento']) {
+    const id = `${personagem.id}-${versao}-${look}`;
+    const bytes = await readFile(`apps/desktop/public/avatars/${id}.glb`);
+    const gltf = await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), '');
+    const avatar = new AvatarAnimado(gltf);
+    try {
+      const meshes = [];
+      avatar.root.traverse(o => { if (o.isSkinnedMesh) meshes.push(o); });
+      const pes = ['FootL', 'FootR'].map(nome => {
+        for (const mesh of meshes) {
+          const osso = mesh.skeleton.bones.findIndex(b => b.name === nome);
+          const indices = mesh.geometry.attributes.skinIndex, pesos = mesh.geometry.attributes.skinWeight;
+          for (let i = 0; i < indices.count; i++) for (let j = 0; j < 4; j++) {
+            if (indices.getComponent(i, j) === osso && pesos.getComponent(i, j) > .5) return { mesh, indice: i };
+          }
+        }
+        assert.fail(`${id}: pé sem vértices vinculados ao esqueleto`);
+      });
+      const amostras = [];
+      for (let i = 0; i < 28; i++) {
+        avatar.passo(.05, 'Walk'); avatar.root.updateMatrixWorld(true);
+        amostras.push(pes.map(({ mesh, indice }) => mesh.getVertexPosition(indice, new THREE.Vector3()).clone()));
+      }
+      for (let lado = 0; lado < 2; lado++) {
+        const z = amostras.map(a => a[lado].z), y = amostras.map(a => a[lado].y);
+        assert.ok(Math.max(...z) - Math.min(...z) > .15, `${id}: pé deve avançar e recuar`);
+        assert.ok(Math.max(...y) - Math.min(...y) > .04, `${id}: pé deve levantar do chão`);
+      }
+      const diferencas = amostras.map(([esquerdo, direito]) => esquerdo.z - direito.z);
+      assert.ok(Math.min(...diferencas) < -.1 && Math.max(...diferencas) > .1, `${id}: passos devem alternar`);
+    } finally { avatar.destruir(); }
+  }
+});
+
+test('o mundo espera pelo modelo, caminha com pernas animadas e congela agentes inativos', async () => {
+  const carregarTextura = THREE.TextureLoader.prototype.load, carregarModelo = GLTFLoader.prototype.loadAsync;
+  THREE.TextureLoader.prototype.load = () => new THREE.Texture();
+  let concluir;
+  GLTFLoader.prototype.loadAsync = () => new Promise(resolve => { concluir = resolve; });
+  const mundo = new Mundo();
+  try {
+    mundo.sync([agente], new Set(), null);
+    const inicial = mundo.posicao(agente.id);
+    for (let i = 0; i < 240; i++) mundo.passo(.05);
+    assert.deepEqual(mundo.posicao(agente.id), inicial, 'a prévia estática não pode deslizar enquanto carrega');
+    const bytes = await readFile('apps/desktop/public/avatars/atlas-m-casual.glb');
+    concluir(await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), ''));
+    await new Promise(resolve => setImmediate(resolve));
+    let mesh; mundo.scene.traverse(o => { if (o.isSkinnedMesh) mesh = o; });
+    assert.ok(mesh, 'o modelo deve substituir a imagem');
+    // Um destino fixo torna o teste independente das pausas e dos passeios aleatórios.
+    const boneco = mundo.bonecos.get(agente.id);
+    boneco.rota = [{ x: inicial.x + 3, z: inicial.z }];
+    mundo.passo(.05); mundo.scene.updateMatrixWorld(true);
+    const peAntes = mesh.skeleton.bones.find(b => b.name === 'FootL').quaternion.clone();
+    for (let i = 0; i < 8; i++) mundo.passo(.05);
+    assert.ok(mundo.posicao(agente.id).x > inicial.x);
+    assert.ok(peAntes.angleTo(mesh.skeleton.bones.find(b => b.name === 'FootL').quaternion) > .01);
+    mundo.sync([{ ...agente, ativo: false }], new Set(), null);
+    const parado = mundo.posicao(agente.id);
+    for (let i = 0; i < 20; i++) mundo.passo(.05);
+    assert.deepEqual(mundo.posicao(agente.id), parado);
+    mundo.sync([agente], new Set(), null);
+    mundo.passo(.05, true); const reduzido = mundo.posicao(agente.id);
+    mundo.passo(10, true); assert.deepEqual(mundo.posicao(agente.id), reduzido);
+  } finally { mundo.destruir(); THREE.TextureLoader.prototype.load = carregarTextura; GLTFLoader.prototype.loadAsync = carregarModelo; }
+});
 const aparencia = { corpo: 'monitor', cor: '#8b6cf0', acessorio: null };
 const agente = { id: 'a1', escritorio_id: 'e1', nome: 'Produção', cargo: 'Operação de eventos', instrucoes: '', aparencia, provedor: 'openai', modelo: 'auto', autonomia: 'supervisionado', ativo: true };
 
