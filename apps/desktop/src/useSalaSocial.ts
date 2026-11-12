@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from './supabase';
-import { presentesAtivos, baloesAtivos, type MensagemCafe, type Perfil, type PessoaPresente, type Zona } from './social';
+import { presentesAtivos, baloesAtivos, PRESENCA_VALIDA_MS, type MensagemCafe, type Perfil, type PessoaPresente, type Zona } from './social';
 
 export function useSalaSocial(sala: string | undefined, perfil: Perfil) {
   const [pessoas, setPessoas] = useState<PessoaPresente[]>([]), [mensagens, setMensagens] = useState<MensagemCafe[]>([]);
@@ -17,7 +17,7 @@ export function useSalaSocial(sala: string | undefined, perfil: Perfil) {
     if (!sala) return;
     const pedido = ++leitura.current;
     const [presencas, chat] = await Promise.all([
-      supabase.from('presencas').select('user_id,zona,x,z,visto_em,perfis(nome,aparencia)').eq('escritorio_id', sala).gte('visto_em', new Date(Date.now() - 70_000).toISOString()),
+      supabase.from('presencas').select('user_id,zona,x,z,visto_em,perfis(nome,aparencia)').eq('escritorio_id', sala).gte('visto_em', new Date(Date.now() - PRESENCA_VALIDA_MS).toISOString()),
       supabase.from('mensagens_cafe').select('id,user_id,destinatario,texto,criado_em').eq('escritorio_id', sala).order('criado_em', { ascending: false }).limit(60)
     ]);
     if (atual.current !== sala || leitura.current !== pedido) return;
@@ -47,7 +47,16 @@ export function useSalaSocial(sala: string | undefined, perfil: Perfil) {
     const batimento = setInterval(() => void marcar(), 20_000), relogio = setInterval(() => setAgora(Date.now()), 1_000);
     const voltar = () => { if (document.visibilityState === 'visible') void marcar(); };
     document.addEventListener('visibilitychange', voltar);
-    return () => { ativo = false; leitura.current++; clearInterval(batimento); clearInterval(relogio); document.removeEventListener('visibilitychange', voltar); void supabase.removeChannel(sub); fila.current = fila.current.then(async () => { await supabase.rpc('sair_sala', { instancia: sessao }); }); };
+    // Ao fechar a aba, avisa a saída na hora, para o avatar não ficar parado na sala dos outros.
+    let token = '';
+    void supabase.auth.getSession().then(({ data }) => { token = data.session?.access_token ?? ''; });
+    const fechar = () => {
+      const url = String(import.meta.env.VITE_SUPABASE_URL ?? '').replace(/\/$/, ''), key = String(import.meta.env.VITE_SUPABASE_ANON_KEY ?? '');
+      if (!url || !key || !token) return;
+      void fetch(`${url}/rest/v1/rpc/sair_sala`, { method: 'POST', keepalive: true, headers: { apikey: key, authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ instancia: sessao }) }).catch(() => {});
+    };
+    window.addEventListener('pagehide', fechar);
+    return () => { ativo = false; leitura.current++; clearInterval(batimento); clearInterval(relogio); document.removeEventListener('visibilitychange', voltar); window.removeEventListener('pagehide', fechar); void supabase.removeChannel(sub); fila.current = fila.current.then(async () => { await supabase.rpc('sair_sala', { instancia: sessao }); }); };
   }, [sala, perfil.user_id, carregar, registrar]);
   async function ir(para: Zona) {
     if (!sala) return;

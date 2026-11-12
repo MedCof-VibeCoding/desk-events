@@ -68,7 +68,8 @@ export function Office({ session, perfil }: { session: Session; perfil: Perfil }
     if (salasRes.error || membrosRes.error) { setErro('Não foi possível carregar suas salas.'); setCarregando(false); return; }
     const lista = (salasRes.data ?? []).map(s => ({ ...s, papel: (membrosRes.data?.find(m => m.escritorio_id === s.id)?.papel ?? 'leitor') as Papel }));
     setSalas(lista);
-    const escolhida = lista.find(s => s.id === salaAtual.current) ?? lista.find(s => s.id === minhaSala.current) ?? lista.find(s => s.pessoal && s.criado_por === session.user.id) ?? lista[0];
+    // Ao entrar, todos começam no escritório principal, onde as pessoas se encontram. A sala pessoal fica a um clique.
+    const escolhida = lista.find(s => s.id === salaAtual.current) ?? lista.find(s => s.principal) ?? lista.find(s => s.id === minhaSala.current) ?? lista[0];
     if (escolhida) { salaAtual.current = escolhida.id; setEscritorio(escolhida); setPapel(escolhida.papel); await Promise.all([carregarAgentes(escolhida.id), carregarOcupados(escolhida.id), contarPendentes(escolhida.id)]); }
     else { setEscritorio(null); setPapel(null); setAgentes([]); }
     setCarregando(false);

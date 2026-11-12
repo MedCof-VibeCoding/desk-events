@@ -5,7 +5,8 @@ export interface Perfil { user_id: string; nome: string; aparencia: Aparencia | 
 export interface PessoaPresente { user_id: string; nome: string; aparencia: Aparencia; zona: Zona; x: number; z: number; visto_em: string }
 export interface MensagemCafe { id: string; user_id: string; destinatario: string | null; texto: string; criado_em: string }
 export interface SalaAcesso { id: string; nome: string; pausado: boolean; principal: boolean; pessoal?: boolean; criado_por: string; papel: Papel }
-export const PRESENCA_VALIDA_MS = 70_000;
+// Abas em segundo plano espaçam o batimento de 20 s; 150 s evita o avatar sumir à toa.
+export const PRESENCA_VALIDA_MS = 150_000;
 export const BALAO_MS = 12_000;
 export function presentesAtivos(pessoas: PessoaPresente[], agora = Date.now()) {
   return pessoas.filter(p => Number.isFinite(Date.parse(p.visto_em)) && agora - Date.parse(p.visto_em) < PRESENCA_VALIDA_MS);
