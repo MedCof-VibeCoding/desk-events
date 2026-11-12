@@ -1,13 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { supabase, servidor, type Agente, type Aparencia, type Autonomia, type Provedor } from './supabase';
+import { supabase, type Agente, type Aparencia, type Autonomia } from './supabase';
 import { SkillsEscolha } from './SkillsEscolha';
 import { Robot } from './Robot';
 import { PERSONAGENS, LOOKS, avatarDe, normalizarAparencia, type Personagem } from './personagens';
 
 const CORES = ['#2BB3A3', '#8B6CF0', '#F08A3C', '#E05A8A', '#3E6AE0', '#3BAA5C', '#E3A008', '#7A8399'];
-const PROVEDORES: { v: Provedor; t: string }[] = [{ v: 'openai', t: 'ChatGPT' }, { v: 'google', t: 'Gemini' }, { v: 'anthropic', t: 'Claude' }];
-// Sugere o modelo intermediário de cada provedor quando ele aparece na lista da conta.
-const sugerir = (lista: string[]) => lista.find(m => /mini|flash|sonnet/.test(m) && !/nano|lite|preview|audio/.test(m)) ?? lista[0] ?? '';
+const CHATGPT = { provedor: 'openai' as const, modelo: 'gpt-4.1-mini' };
 const NIVEIS: { v: Autonomia; t: string }[] = [
   { v: 'assistido', t: 'Assistido: pede aprovação para tudo' },
   { v: 'supervisionado', t: 'Supervisionado: lê sozinho, pede para escrever' },
@@ -23,27 +21,8 @@ export function AgentForm({ escritorioId, coresUsadas, agente, onFechar, onSalvo
   const [autonomia, setAutonomia] = useState<Autonomia>(agente?.autonomia ?? 'supervisionado');
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
-  const [provedor, setProvedor] = useState<Provedor>(agente?.provedor ?? 'openai');
-  const [modelo, setModelo] = useState(agente?.modelo ?? '');
-  const [modelos, setModelos] = useState<string[]>([]);
-  const [avisoModelo, setAvisoModelo] = useState('');
   const [skills, setSkills] = useState<Set<string>>(new Set());
   const [skillsIniciais, setSkillsIniciais] = useState<Set<string>>(new Set());
-
-  // Modelos disponíveis na conta do provedor escolhido.
-  useEffect(() => {
-    let vivo = true;
-    setModelos([]); setAvisoModelo('Buscando modelos…');
-    servidor<{ configurado: boolean; modelos: string[] }>(`/api/models?provedor=${provedor}`)
-      .then(r => {
-        if (!vivo) return;
-        setModelos(r.modelos);
-        setModelo(atual => (atual && (r.modelos.includes(atual) || !r.modelos.length)) ? atual : sugerir(r.modelos));
-        setAvisoModelo(!r.configurado ? 'A chave deste provedor ainda não foi configurada no servidor.' : r.modelos.length ? '' : 'Nenhum modelo encontrado; digite o nome.');
-      })
-      .catch(e => { if (vivo) setAvisoModelo(`${(e as Error).message} Digite o nome do modelo.`); });
-    return () => { vivo = false; };
-  }, [provedor]);
 
   // Skills que o agente já tem.
   useEffect(() => {
@@ -56,9 +35,8 @@ export function AgentForm({ escritorioId, coresUsadas, agente, onFechar, onSalvo
 
   async function salvar(e: FormEvent) {
     e.preventDefault();
-    if (!modelo.trim()) { setErro('Escolha o modelo de IA do agente.'); return; }
     setSalvando(true); setErro('');
-    const campos = { nome: nome.trim(), cargo: cargo.trim(), instrucoes: instrucoes.trim(), aparencia, autonomia, provedor, modelo: modelo.trim() };
+    const campos = { nome: nome.trim(), cargo: cargo.trim(), instrucoes: instrucoes.trim(), aparencia, autonomia, ...CHATGPT };
     const res = agente
       ? await supabase.from('agentes').update(campos).eq('id', agente.id).select('id').single()
       : await supabase.from('agentes').insert({ escritorio_id: escritorioId, ...campos }).select('id').single();
@@ -113,27 +91,6 @@ export function AgentForm({ escritorioId, coresUsadas, agente, onFechar, onSalvo
             <span className="rotulo" id="a-cor">Cor de identificação</span>
             <div className="cores" role="radiogroup" aria-labelledby="a-cor">
               {CORES.map(c => <button key={c} type="button" role="radio" aria-checked={aparencia.cor === c} aria-label={`Cor ${c}`} style={{ background: c }} onClick={() => setAparencia({ ...aparencia, cor: c })} />)}
-            </div>
-          </div>
-        </div>
-        <div className="secao-form">
-          <h3>Modelo de IA</h3>
-          <div className="duas">
-            <div>
-              <label htmlFor="a-prov">Provedor</label>
-              <select id="a-prov" value={provedor} onChange={e => { setProvedor(e.target.value as Provedor); setModelo(''); }}>
-                {PROVEDORES.map(p => <option key={p.v} value={p.v}>{p.t}</option>)}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="a-modelo">Modelo</label>
-              {modelos.length > 0 ? (
-                <select id="a-modelo" value={modelo} onChange={e => setModelo(e.target.value)}>
-                  {!modelos.includes(modelo) && modelo && <option value={modelo}>{modelo}</option>}
-                  {modelos.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-              ) : <input id="a-modelo" value={modelo} onChange={e => setModelo(e.target.value)} placeholder="Nome do modelo" />}
-              {avisoModelo && <p className="mudo">{avisoModelo}</p>}
             </div>
           </div>
         </div>
