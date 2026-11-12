@@ -27,8 +27,10 @@ export function lerLinkConfirmacao(endereco: string): LinkConfirmacao {
   if (access_token || refresh_token || query.has('token_hash')) return { modo: 'erro', codigo: 'link_invalido' };
   return { modo: 'ausente' };
 }
-export function mensagemConfirmacao(erro: { code?: string; status?: number } | null) {
-  if (erro?.status === 429 || erro?.code === 'over_email_send_rate_limit' || erro?.code === 'over_request_rate_limit')
+export function mensagemConfirmacao(erro: { code?: string; status?: number; message?: string } | null) {
+  if (erro?.code === 'over_email_send_rate_limit' || erro?.message === 'email rate limit exceeded')
+    return 'O envio de confirmação chegou ao limite. Aguarde cerca de uma hora e tente de novo, sem repetir o clique.';
+  if (erro?.status === 429 || erro?.code === 'over_request_rate_limit')
     return 'Muitas tentativas. Aguarde um minuto antes de tentar novamente.';
   if (erro?.status === 0 || (erro?.status ?? 0) >= 500)
     return 'Não foi possível conectar agora. Confira sua conexão e tente novamente.';

@@ -51,6 +51,7 @@ test('erros do provedor, rede e usuário não confirmado nunca indicam sucesso',
   const { auth } = authMock(); auth.verifyOtp = async () => { throw Error('offline'); };
   assert.match((await confirmarEmail(auth, link)).mensagem, /conectar/);
   assert.match(mensagemConfirmacao({ status: 429 }), /minuto/);
+  assert.match(mensagemConfirmacao({ code: 'over_email_send_rate_limit' }), /hora/);
 });
 test('rota de confirmação e destino são locais; next não redireciona', () => {
   assert.equal(urlConfirmacao('https://desk-events.vercel.app'), base);

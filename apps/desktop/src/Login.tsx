@@ -1,10 +1,30 @@
 import { useState, type FormEvent } from 'react';
-import { supabase } from './supabase';
+import { servidorPublico, supabase } from './supabase';
 import { PERSONAGENS } from './personagens';
 import { MarcaIcone } from './MarcaIcone';
 import { ConfirmarEmail } from './ConfirmarEmail';
-import { urlConfirmacao } from './confirmacaoEmail';
+import { mensagemConfirmacao, urlConfirmacao } from './confirmacaoEmail';
 import './workspace.css';
+
+function textoEntrada(error: { message: string; code?: string; status?: number }) {
+  if (error.message === 'Invalid login credentials') return 'E-mail ou senha incorretos.';
+  if (error.code === 'over_email_send_rate_limit' || error.message === 'email rate limit exceeded' || error.status === 429 || error.code === 'over_request_rate_limit') return mensagemConfirmacao(error);
+  return error.message;
+}
+
+/** Cria a conta pelo servidor. Se essa rota ainda não estiver publicada, usa o cadastro direto. */
+async function criarConta(email: string, senha: string): Promise<{ ok: true; confirmar: boolean } | { ok: false; texto: string }> {
+  try {
+    await servidorPublico('/api/cadastrar', { method: 'POST', body: JSON.stringify({ email, password: senha }) });
+    return { ok: true, confirmar: true };
+  } catch (e) {
+    const texto = e instanceof Error ? e.message : '';
+    if (!/respondeu 404/.test(texto)) return { ok: false, texto: texto || 'Não foi possível criar a conta.' };
+  }
+  const { data, error } = await supabase.auth.signUp({ email, password: senha, options: { emailRedirectTo: urlConfirmacao(window.location.origin) } });
+  if (error) return { ok: false, texto: textoEntrada(error) };
+  return { ok: true, confirmar: !data.session };
+}
 
 export function Login() {
   const [modo, setModo] = useState<'entrar' | 'criar'>('entrar');
@@ -19,12 +39,11 @@ export function Login() {
     setEnviando(true); setMsg(null);
     if (modo === 'entrar') {
       const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
-      if (error) setMsg({ tipo: 'erro', texto: error.message === 'Invalid login credentials' ? 'E-mail ou senha incorretos.' : error.message });
+      if (error) setMsg({ tipo: 'erro', texto: textoEntrada(error) });
     } else {
-      const { data, error } = await supabase.auth.signUp({ email: email.trim(), password: senha, options: { emailRedirectTo: urlConfirmacao(window.location.origin) } });
-      if (!error && !data.session) { setSenha(''); setEmailEnviado(email.trim()); }
-      if (error) setMsg({ tipo: 'erro', texto: error.message });
-      else if (!data.session) setMsg({ tipo: 'ok', texto: 'Conta criada. Confirme pelo link enviado ao seu e-mail e depois entre.' });
+      const criado = await criarConta(email.trim(), senha);
+      if (criado.ok && criado.confirmar) { setSenha(''); setEmailEnviado(email.trim()); }
+      else if (!criado.ok) setMsg({ tipo: 'erro', texto: criado.texto });
     }
     setEnviando(false);
   }

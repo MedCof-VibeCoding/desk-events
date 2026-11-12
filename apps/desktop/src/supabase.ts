@@ -40,3 +40,14 @@ export async function servidor<T>(caminho: string, init?: RequestInit): Promise<
   if (!res.ok) throw new Error((corpo as { erro?: string }).erro || `O servidor respondeu ${res.status}.`);
   return corpo as T;
 }
+
+// Chamada sem sessão, usada no cadastro, antes de existir uma conta.
+export async function servidorPublico<T>(caminho: string, init?: RequestInit): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(SERVER + caminho, { ...init, headers: { ...(init?.headers || {}), 'content-type': 'application/json' } });
+  } catch { throw new Error('Não foi possível falar com o servidor de agentes.'); }
+  const corpo = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((corpo as { erro?: string }).erro || `O servidor respondeu ${res.status}.`);
+  return corpo as T;
+}
