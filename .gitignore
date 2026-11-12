@@ -5,3 +5,6 @@ release
 .env
 .env.local
 .vercel
+apps/connector/release
+apps/connector/src/ponte
+apps/connector/package-lock.json

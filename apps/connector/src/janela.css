@@ -1,0 +1,32 @@
+:root { color-scheme: dark; --bg: #0c0c0c; --surface: #181818; --line: #303030; --ink: #f5f5f5; --muted: #ababab; --accent: #c52232; --ok: #71d7ac; --danger: #ff8a98; }
+* { box-sizing: border-box; }
+body { margin: 0; padding: 18px 20px 20px; background: var(--bg); color: var(--ink); font: 14px/1.5 "Segoe UI", system-ui, sans-serif; user-select: none; }
+header { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; }
+header img { border-radius: 8px; }
+header div { display: grid; } header span { font-size: 11px; color: var(--muted); }
+h1 { font-size: 20px; margin: 4px 0 8px; }
+.mudo { color: var(--muted); font-size: 12.5px; margin: 6px 0 0; }
+label { display: block; font-weight: 600; font-size: 13px; margin: 12px 0 4px; }
+input[type=email], input[type=password] { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; user-select: text; }
+button { font: inherit; font-weight: 600; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+button:hover { border-color: #555; }
+button.primario { background: var(--accent); border-color: var(--accent); width: 100%; margin-top: 16px; padding: 12px; }
+button.discreto { background: transparent; color: var(--muted); }
+button:disabled { opacity: .5; cursor: default; }
+:focus-visible { outline: 2px solid #ff7885; outline-offset: 2px; }
+.erro { color: var(--danger); font-size: 13px; margin: 10px 0 0; }
+.estado { display: flex; gap: 12px; align-items: center; padding: 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); }
+.estado .luz { width: 12px; height: 12px; border-radius: 50%; background: #777; flex: none; }
+.estado.ligado { border-color: var(--ok); } .estado.ligado .luz { background: var(--ok); box-shadow: 0 0 0 5px #71d7ac30; }
+.estado div { display: grid; } .estado span { color: var(--muted); font-size: 12.5px; }
+.bloco { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.rotulo { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: .04em; }
+.pasta code { display: block; margin: 6px 0 8px; padding: 9px 11px; border-radius: 8px; background: var(--surface); font: 12.5px Consolas, monospace; word-break: break-all; user-select: text; }
+.linha { display: flex; gap: 8px; flex-wrap: wrap; }
+.chave { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 6px 0 10px; font-weight: 400; cursor: pointer; }
+.chave span { display: grid; } .chave small { color: var(--muted); font-size: 12px; }
+.chave input { width: 18px; height: 18px; accent-color: var(--accent); flex: none; }
+#log { list-style: none; margin: 6px 0 0; padding: 0; max-height: 118px; overflow: auto; font: 12px Consolas, monospace; color: var(--muted); }
+#log li { padding: 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rodape { margin-top: 16px; }
+.pe { text-align: center; margin-top: 12px; }

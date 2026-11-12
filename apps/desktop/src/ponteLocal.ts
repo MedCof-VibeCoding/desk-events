@@ -76,6 +76,27 @@ export async function ligarPonte(userId: string, escritorioId: string, novaPasta
 }
 
 /**
+ * Religa sozinha, sem perguntar nada, quando o navegador já deu permissão permanente
+ * para a pasta guardada (no Chrome, a opção "Permitir em todas as visitas").
+ * Devolve o nome da pasta, ou null se ainda for preciso um clique da pessoa.
+ */
+export async function retomarPonte(userId: string, escritorioId: string): Promise<string | null> {
+  if (ativa) return ativa.raiz.name;
+  if (!navegadorComPasta()) return null;
+  const pasta = guardada ?? await lerPasta().catch(() => null);
+  if (!pasta) return null;
+  try { if (await pasta.queryPermission({ mode: 'readwrite' }) !== 'granted') return null; } catch { return null; }
+  guardada = pasta;
+  return ligarPonte(userId, escritorioId);
+}
+
+/** Nome da última pasta usada neste navegador, para oferecer "Reconectar". */
+export async function pastaGuardada(): Promise<string | null> {
+  const pasta = guardada ?? await lerPasta().catch(() => null);
+  return pasta?.name ?? null;
+}
+
+/**
  * Desliga a ponte desta aba e apaga o registro no escritório.
  */
 export async function desligarPonte(): Promise<void> {

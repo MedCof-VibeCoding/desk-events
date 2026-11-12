@@ -1,0 +1,41 @@
+# Gera o instalador do DeskCof Conector para Windows e publica nas Releases do GitHub.
+# O site aponta para releases/latest/download/DeskCof-Conector-Setup.exe.
+# Para lançar uma versão nova, aumente "version" em apps/connector/package.json.
+name: DeskCof Conector
+on:
+  push:
+    branches: [main]
+    paths: ['apps/connector/**', 'apps/bridge/**', '.github/workflows/conector.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Instalar
+        working-directory: apps/connector
+        run: npm install --no-audit --no-fund
+      - name: Testar
+        working-directory: apps/connector
+        run: npm test
+      - name: Gerar instalador
+        working-directory: apps/connector
+        run: npm run dist
+      - name: Publicar
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSAO=$(node -p "require('./apps/connector/package.json').version")
+          TAG="conector-v$VERSAO"
+          ARQ="apps/connector/release/DeskCof-Conector-Setup.exe"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ARQ" --clobber
+          else
+            gh release create "$TAG" "$ARQ" --title "DeskCof Conector $VERSAO" --notes "Instalador do DeskCof Conector para Windows." --latest
+          fi

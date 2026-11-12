@@ -8,8 +8,8 @@ import { Mesa } from './Mesa';
 import type { Perfil, SalaAcesso } from './social';
 import { useSalaSocial } from './useSalaSocial';
 import { AcessosSala } from './AcessosSala';
-import { SINAL_PONTE_MS, desligarPonte, ligarPonte, navegadorComPasta } from './ponteLocal';
-import { MeuComputador } from './MeuComputador';
+import { SINAL_PONTE_MS, desligarPonte, ligarPonte, navegadorComPasta, retomarPonte, pastaGuardada } from './ponteLocal';
+import { MeuComputador, type EstadoPc } from './MeuComputador';
 import './extras.css';
 
 
@@ -26,6 +26,8 @@ export function Office({ session, perfil }: { session: Session; perfil: Perfil }
   const [mesa, setMesa] = useState(false);
   const [pendentes, setPendentes] = useState(0);
   const [ponteLigada, setPonteLigada] = useState(false);
+  const [pc, setPc] = useState<EstadoPc>({ ligado: false, viaConector: false, computador: '', pasta: null, comandos: false });
+  const [pastaAntiga, setPastaAntiga] = useState<string | null>(null);
   const [pastaPonte, setPastaPonte] = useState<string | null>(null);
   const [ligando, setLigando] = useState(false);
   const [salas, setSalas] = useState<SalaAcesso[]>([]);
@@ -81,15 +83,36 @@ export function Office({ session, perfil }: { session: Session; perfil: Perfil }
     return () => { void supabase.removeChannel(sub); };
   }, [carregar, session.user.id]);
 
-  // A ponte local desta pessoa conta como ligada se deu sinal nos últimos dois minutos.
-  useEffect(() => {
-    const ver = async () => {
-      const { data } = await supabase.from('pontes').select('visto_em').eq('user_id', session.user.id).maybeSingle();
-      setPonteLigada(!!data && Date.now() - Date.parse(data.visto_em) < SINAL_PONTE_MS);
-    };
-    ver(); const t = setInterval(ver, 20_000);
-    return () => clearInterval(t);
+  // Quem está conectando este computador: o DeskCof Conector instalado ou esta aba do navegador.
+  const verPonte = useCallback(async () => {
+    const { data } = await supabase.from('pontes').select('visto_em, nome, pasta').eq('user_id', session.user.id).maybeSingle();
+    const vivo = !!data && Date.now() - Date.parse(data.visto_em) < SINAL_PONTE_MS;
+    const nome = String(data?.nome ?? '');
+    const viaConector = vivo && nome.startsWith('conector:');
+    setPonteLigada(vivo);
+    setPc({ ligado: vivo, viaConector, computador: viaConector ? nome.slice(9).replace(' (comandos)', '') : '', pasta: vivo ? (data?.pasta ?? null) : null, comandos: nome.endsWith('(comandos)') });
+    return { vivo, viaConector };
   }, [session.user.id]);
+  useEffect(() => {
+    void verPonte(); const t = setInterval(() => void verPonte(), 15_000);
+    const canal = supabase.channel(`ponte-${session.user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pontes', filter: `user_id=eq.${session.user.id}` }, () => void verPonte()).subscribe();
+    return () => { clearInterval(t); void supabase.removeChannel(canal); };
+  }, [session.user.id, verPonte]);
+
+  // Sem o Conector ligado, religa sozinha a pasta do navegador se a permissão já foi dada.
+  const tentouRetomar = useRef(false);
+  useEffect(() => {
+    if (carregando || tentouRetomar.current || !minhaSala.current) return;
+    tentouRetomar.current = true;
+    void (async () => {
+      setPastaAntiga(await pastaGuardada());
+      const { viaConector } = await verPonte();
+      if (viaConector) return;
+      const pasta = await retomarPonte(session.user.id, minhaSala.current!).catch(() => null);
+      if (pasta) { setPastaPonte(pasta); void verPonte(); }
+    })();
+  }, [carregando, session.user.id, verPonte]);
 
   useEffect(() => () => { void desligarPonte().catch(() => {}); }, []);
 
@@ -111,13 +134,13 @@ export function Office({ session, perfil }: { session: Session; perfil: Perfil }
     setLigando(true); setErroPc('');
     try {
       const pasta = await ligarPonte(session.user.id, sala, novaPasta);
-      if (pasta) { setPastaPonte(pasta); setPonteLigada(true); }
+      if (pasta) { setPastaPonte(pasta); setPonteLigada(true); void verPonte(); }
     } catch (e) { setErroPc(e instanceof Error ? e.message : 'Não foi possível conectar a pasta.'); }
     setLigando(false);
   }
 
   async function desligar() {
-    try { await desligarPonte(); setPastaPonte(null); setPonteLigada(false); }
+    try { await desligarPonte(); setPastaPonte(null); setPonteLigada(false); void verPonte(); }
     catch (e) { setErroPc(e instanceof Error ? e.message : 'Não foi possível desconectar.'); }
   }
 
@@ -167,7 +190,7 @@ export function Office({ session, perfil }: { session: Session; perfil: Perfil }
       <button className={'atalho-computador' + (ponteLigada ? ' ligado' : '')} onClick={() => { setErroPc(''); setComputador(true); }}>
         <span className="luz" aria-hidden="true" />
         <strong>Meu computador</strong>
-        <span>{pastaPonte ? `Pasta: ${pastaPonte}` : ponteLigada ? 'Conectado' : 'Conectar uma pasta'}</span>
+        <span>{pc.ligado ? `${pc.viaConector ? 'Conector' : 'Navegador'} · ${pc.pasta ?? 'conectado'}` : 'Não conectado · configurar'}</span>
       </button>
     </div>}
     acessos={salas.find(s => s.id === escritorio.id) ? <AcessosSala sala={salas.find(s => s.id === escritorio.id)!} perfil={perfil} /> : null}
@@ -180,7 +203,7 @@ export function Office({ session, perfil }: { session: Session; perfil: Perfil }
     ponte={<button className={'ponte' + (ponteLigada ? ' ligada' : '')} onClick={() => { setErroPc(''); setComputador(true); }}>{ponteLigada ? `Conectado${pastaPonte ? ` · ${pastaPonte}` : ''}` : 'Abrir Meu computador'}</button>}
     painel={mesa ? <Mesa escritorioId={escritorio.id} podeOperar={pode(papel, 'operador')} onFechar={() => setMesa(false)} onMudou={setPendentes} /> : selecionado ?
       <AgentPanel key={selecionado.id} agente={selecionado} podeOperar={pode(papel, 'operador')} podeEditar={pode(papel, 'editor')} onFechar={() => setAberto(null)} onEditar={() => { setCriando(false); setEditando(selecionado); }} onExcluido={() => { const id = aberto; setAgentes(lista => lista.filter(a => a.id !== id)); setOcupados(atual => { const prox = new Set(atual); if (id) prox.delete(id); return prox; }); setEditando(atual => atual?.id === id ? null : atual); setAberto(null); }} /> : null}
-    modal={computador ? <MeuComputador ligado={ponteLigada} pasta={pastaPonte} ligando={ligando} podeOperar={!!minhaSala.current} navegadorOk={navegadorComPasta()} erro={erroPc}
+    modal={computador ? <MeuComputador estado={pc} pastaAba={pastaPonte} pastaGuardada={pastaAntiga} ligando={ligando} podeOperar={!!minhaSala.current} navegadorOk={navegadorComPasta()} erro={erroPc}
       onLigar={nova => void ligar(nova)} onDesligar={() => void desligar()} onFechar={() => setComputador(false)} /> : (criando || editando) ? <AgentForm key={editando?.id ?? 'novo'} escritorioId={escritorio.id} agente={editando ?? undefined} coresUsadas={agentes.filter(a => a.id !== editando?.id).map(a => a.aparencia.cor)} onFechar={() => { setCriando(false); setEditando(null); }} onSalvo={() => { setCriando(false); setEditando(null); void carregarAgentes(escritorio.id); }} /> : null}
   />;
 }

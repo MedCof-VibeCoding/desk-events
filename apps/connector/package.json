@@ -1,0 +1,47 @@
+{
+  "name": "@desk-events/connector",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "DeskCof Conector — deixa os agentes trabalharem numa pasta deste computador",
+  "author": "MedCof Eventos",
+  "main": "src/main.js",
+  "scripts": {
+    "copiar": "node scripts/copiar-ponte.mjs",
+    "start": "npm run copiar && electron .",
+    "dist": "npm run copiar && electron-builder --win nsis --publish never",
+    "test": "npm run copiar && node --test src/core.test.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0"
+  },
+  "devDependencies": {
+    "electron": "^36.2.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "br.com.medcof.deskcof.conector",
+    "productName": "DeskCof Conector",
+    "artifactName": "DeskCof-Conector-Setup.${ext}",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**",
+      "!src/**/*.test.js",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "runAfterFinish": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "DeskCof Conector"
+    }
+  }
+}

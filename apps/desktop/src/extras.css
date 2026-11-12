@@ -49,3 +49,7 @@
 .secao-form { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
 .secao-form > h3 { margin: 0 0 4px; font-size: 16px; }
 .rotulo-sala { font-size: 11px; color: var(--muted); }
+.opcao-conector { position: relative; display: grid; gap: 10px; padding: 18px; border: 2px solid var(--accent); border-radius: 14px; background: var(--wash); }
+.opcao-conector h3 { margin: 0; font-size: 18px; }
+.selo-recomendado { justify-self: start; font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); }
+a.botao-grande { display: block; text-align: center; text-decoration: none; }

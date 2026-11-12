@@ -2,7 +2,9 @@
   "name": "desk-events",
   "private": true,
   "workspaces": [
-    "apps/*"
+    "apps/desktop",
+    "apps/server",
+    "apps/bridge"
   ],
   "scripts": {
     "dev": "npm run dev -w apps/desktop",

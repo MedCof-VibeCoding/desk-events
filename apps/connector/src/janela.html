@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'">
+<title>DeskCof Conector</title>
+<link rel="stylesheet" href="janela.css">
+</head>
+<body>
+<header><img src="icone.png" alt="" width="36" height="36"><div><strong>DeskCof Conector</strong><span id="versao"></span></div></header>
+
+<section id="tela-login" hidden>
+  <h1>Conecte este computador</h1>
+  <p class="mudo">Entre com a mesma conta do DeskCof. Depois disso, seus agentes poderão trabalhar com os arquivos de uma pasta deste computador, mesmo com o site fechado.</p>
+  <form id="form-login">
+    <label for="email">E-mail</label>
+    <input id="email" type="email" autocomplete="email" required>
+    <label for="senha">Senha</label>
+    <input id="senha" type="password" autocomplete="current-password" required>
+    <p id="erro-login" class="erro" role="alert" hidden></p>
+    <button class="primario" id="entrar">Entrar e conectar</button>
+  </form>
+</section>
+
+<section id="tela-principal" hidden>
+  <div id="cartao-estado" class="estado"><span class="luz"></span><div><strong id="titulo-estado"></strong><span id="detalhe-estado"></span></div></div>
+  <p id="erro" class="erro" role="alert" hidden></p>
+
+  <div class="bloco">
+    <span class="rotulo">Pasta dos agentes</span>
+    <div class="pasta"><code id="pasta"></code></div>
+    <div class="linha"><button id="trocar">Trocar pasta</button><button id="abrir-pasta">Abrir pasta</button></div>
+    <p class="mudo">Os agentes só enxergam o que está dentro desta pasta. Eles leem e criam arquivos de texto e não apagam nada.</p>
+  </div>
+
+  <div class="bloco">
+    <label class="chave"><span><strong>Iniciar com o Windows</strong><small>O Conector liga sozinho quando o computador liga.</small></span><input type="checkbox" id="iniciar"></label>
+    <label class="chave"><span><strong>Permitir comandos</strong><small>Cada comando pede a sua aprovação no site antes de rodar.</small></span><input type="checkbox" id="comandos"></label>
+  </div>
+
+  <div class="bloco">
+    <span class="rotulo">O que os agentes fizeram aqui</span>
+    <ul id="log"></ul>
+  </div>
+
+  <div class="linha rodape">
+    <button id="pausar">Pausar</button>
+    <button id="site">Abrir o DeskCof</button>
+    <button id="sair" class="discreto">Sair da conta</button>
+  </div>
+  <p class="mudo pe">Fechar esta janela não desliga: o Conector continua no relógio do Windows, perto da hora.</p>
+</section>
+<script src="janela.js"></script>
+</body>
+</html>
