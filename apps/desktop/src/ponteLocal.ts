@@ -8,6 +8,8 @@ export const SINAL_PONTE_MS = 120_000;
 const MAX_LER = 200_000;
 const MAX_GRAVAR = 1_000_000;
 const MAX_LISTA = 200;
+/** Antes de substituir um arquivo, a versão anterior é guardada aqui (mesma regra da ponte do terminal). */
+const COPIAS = '.deskcof-copias';
 const TEXTO = /\.(txt|md|markdown|csv|tsv|json|jsonl|yaml|yml|xml|html?|css|js|mjs|ts|tsx|jsx|py|sql|log|ini|toml|env\.example|srt|rtf)$/i;
 
 declare global {
@@ -228,14 +230,26 @@ async function gravar(raiz: FileSystemDirectoryHandle, caminho: string | undefin
   const texto = String(conteudo ?? '');
   const tamanho = new TextEncoder().encode(texto).length;
   if (tamanho > MAX_GRAVAR) throw new Error('O conteúdo passa do limite de 1 MB.');
+  if ((nomes[0] ?? nome).toLowerCase() === COPIAS) throw new Error('A pasta de cópias de segurança não pode ser alterada pelos agentes.');
   const dir = await abrir(raiz, nomes, true);
   const tipo = await tipoDe(dir, nome);
   if (tipo === 'pasta') throw new Error('Isso é uma pasta, não um arquivo.');
+  const relativo = [...nomes, nome].join('/');
+  let copia = '';
+  if (tipo === 'arquivo') {
+    // Guarda a versão anterior antes de substituir, para a pessoa poder voltar atrás.
+    const anterior = await (await dir.getFileHandle(nome)).getFile();
+    const carimbo = new Date().toISOString().replace(/[:.]/g, '-');
+    const pastaCopia = await abrir(raiz, [COPIAS, carimbo, ...nomes], true);
+    const escrita = await (await pastaCopia.getFileHandle(nome, { create: true })).createWritable();
+    await escrita.write(await anterior.arrayBuffer());
+    await escrita.close();
+    copia = ` A versão anterior foi guardada em ${[COPIAS, carimbo, relativo].join('/')}.`;
+  }
   const destino = await (await dir.getFileHandle(nome, { create: true })).createWritable();
   await destino.write(texto);
   await destino.close();
-  const relativo = [...nomes, nome].join('/');
-  return `${tipo === 'arquivo' ? 'Arquivo substituído' : 'Arquivo criado'}: ${relativo} (${tamanho} bytes).`;
+  return `${tipo === 'arquivo' ? 'Arquivo substituído' : 'Arquivo criado'}: ${relativo} (${tamanho} bytes).${copia}`;
 }
 
 /**

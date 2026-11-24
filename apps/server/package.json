@@ -5,6 +5,6 @@
   "type": "module",
   "description": "Servidor de agentes — projeto Vercel",
   "scripts": { "typecheck": "tsc --noEmit" },
-  "dependencies": { "@supabase/supabase-js": "^2.45.0" },
+  "dependencies": { "@supabase/supabase-js": "^2.45.0", "@vercel/functions": "^3.11.3" },
   "devDependencies": { "typescript": "^5.5.4", "@types/node": "^20.14.0" }
 }

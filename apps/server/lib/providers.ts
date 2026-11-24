@@ -33,7 +33,8 @@ class ErroProvedor extends HttpError {
 
 async function chamar(p: Provedor, f: Fetch, url: string, init: RequestInit): Promise<any> {
   let res: Response;
-  try { res = await f(url, init); } catch { throw new HttpError(502, `Não foi possível falar com o ${NOME[p]}.`); }
+  // 90 s por chamada: o servidor tem 5 minutos por execução e precisa de folga para salvar.
+  try { res = await f(url, { ...init, signal: init.signal ?? AbortSignal.timeout(90_000) }); } catch { throw new HttpError(502, `Não foi possível falar com o ${NOME[p]} a tempo.`); }
   const corpo: any = await res.json().catch(() => ({}));
   if (!res.ok) throw new ErroProvedor(res.status, res.headers.get('retry-after'), `O ${NOME[p]} recusou a chamada: ${String(corpo?.error?.message || `código ${res.status}`).slice(0, 300)}`);
   return corpo;

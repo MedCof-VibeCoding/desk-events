@@ -46,7 +46,7 @@ export function Office({ session, perfil }: { session: Session; perfil: Perfil }
 
   // Agentes com ficha na fila ou em andamento: é o que faz o robô ir para a mesa.
   const carregarOcupados = useCallback(async (escId: string) => {
-    const { data } = await supabase.from('fichas').select('agente_atual').eq('escritorio_id', escId).in('estado', ['fila', 'trabalhando']);
+    const { data } = await supabase.from('fichas').select('agente_atual').eq('escritorio_id', escId).in('estado', ['fila', 'trabalhando', 'aguardando_computador']);
     if (salaAtual.current !== escId) return;
     setOcupados(new Set((data ?? []).map(f => f.agente_atual as string).filter(Boolean)));
   }, []);

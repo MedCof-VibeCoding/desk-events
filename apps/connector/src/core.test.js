@@ -6,12 +6,13 @@ import { executar } from './ponte/arquivos.mjs';
 
 // Supabase falso, só com o que o Conector usa.
 function falso({ sala = 'sala-1', semUsuario = false } = {}) {
-  const banco = { pontes: [], tarefas_locais: [] };
+  const banco = { pontes: [], tarefas_locais: [], aprovacoes: [] };
   const q = tabela => {
     const f = { filtros: [], acao: 'select', dados: null };
     const linhas = () => banco[tabela].filter(l => f.filtros.every(([c, v, op]) => op === 'like' ? String(l[c]).startsWith(v.replace('%', '')) : l[c] === v));
     const api = {
       select() { return api; }, order() { return api; }, limit() { return api; },
+      maybeSingle() { return Promise.resolve({ data: linhas()[0] ?? null, error: null }); },
       eq(c, v) { f.filtros.push([c, v]); return api; }, like(c, v) { f.filtros.push([c, v, 'like']); return api; },
       update(d) { f.acao = 'update'; f.dados = d; return api; },
       delete() { f.acao = 'delete'; return api; },
@@ -56,15 +57,32 @@ test('recusa fuga da pasta e comandos sem permissão', async () => {
   const c = new Conector({ supabase: cliente, executar });
   await c.ligar({ raiz, comandos: false });
   banco.tarefas_locais.push({ id: 'a', user_id: 'u1', estado: 'pendente', ferramenta: 'ler_arquivo', args: { caminho: '../../segredo.txt' } });
-  banco.tarefas_locais.push({ id: 'b', user_id: 'u1', estado: 'pendente', ferramenta: 'rodar_comando', args: { comando: 'echo oi' } });
+  banco.aprovacoes.push({ id: 'ap0', estado: 'aprovada', decidido_por: 'u1', ficha_id: 'f1', pedido: { ferramenta: 'rodar_comando', args: { comando: 'echo oi' } } });
+  banco.tarefas_locais.push({ id: 'b', user_id: 'u1', estado: 'pendente', ficha_id: 'f1', aprovacao_id: 'ap0', ferramenta: 'rodar_comando', args: { comando: 'echo oi' } });
   await c.atender();
   assert.equal(banco.tarefas_locais[0].estado, 'erro'); assert.match(banco.tarefas_locais[0].resultado, /fora da pasta/);
   assert.equal(banco.tarefas_locais[1].estado, 'erro'); assert.match(banco.tarefas_locais[1].resultado, /sem permissão para comandos/);
   await c.ligar({ raiz, comandos: true });
-  banco.tarefas_locais.push({ id: 'c', user_id: 'u1', estado: 'pendente', ferramenta: 'rodar_comando', args: { comando: 'echo oi' } });
+  banco.aprovacoes.push({ id: 'ap1', estado: 'aprovada', decidido_por: 'u1', ficha_id: 'f1', pedido: { ferramenta: 'rodar_comando', args: { comando: 'echo oi' } } });
+  banco.tarefas_locais.push({ id: 'c', user_id: 'u1', estado: 'pendente', ficha_id: 'f1', aprovacao_id: 'ap1', ferramenta: 'rodar_comando', args: { comando: 'echo oi' } });
   await c.atender();
   assert.equal(banco.tarefas_locais[2].estado, 'feito'); assert.match(banco.tarefas_locais[2].resultado, /oi/);
   assert.match(banco.pontes[0].nome, /\(comandos\)/);
+  await c.desligar(); await fs.rm(raiz, { recursive: true });
+});
+
+test('comando sem aprovação da própria pessoa não roda', async () => {
+  const raiz = await fs.mkdtemp(path.join(os.tmpdir(), 'conector-'));
+  const { banco, cliente } = falso();
+  const c = new Conector({ supabase: cliente, executar });
+  await c.ligar({ raiz, comandos: true });
+  banco.aprovacoes.push({ id: 'colega', estado: 'aprovada', decidido_por: 'outra-pessoa', ficha_id: 'f1', pedido: { ferramenta: 'rodar_comando', args: { comando: 'echo oi' } } });
+  banco.aprovacoes.push({ id: 'trocado', estado: 'aprovada', decidido_por: 'u1', ficha_id: 'f1', pedido: { ferramenta: 'rodar_comando', args: { comando: 'echo inofensivo' } } });
+  banco.aprovacoes.push({ id: 'pendente', estado: 'pendente', decidido_por: null, ficha_id: 'f1', pedido: { ferramenta: 'rodar_comando', args: { comando: 'echo oi' } } });
+  for (const [id, aprovacao_id] of [['sem', undefined], ['x1', 'colega'], ['x2', 'trocado'], ['x3', 'pendente'], ['x4', 'inexistente']])
+    banco.tarefas_locais.push({ id, user_id: 'u1', estado: 'pendente', ficha_id: 'f1', aprovacao_id, ferramenta: 'rodar_comando', args: { comando: 'echo oi' } });
+  await c.atender();
+  for (const t of banco.tarefas_locais) { assert.equal(t.estado, 'erro', t.id); assert.match(t.resultado, /não há aprovação sua/); }
   await c.desligar(); await fs.rm(raiz, { recursive: true });
 });
 

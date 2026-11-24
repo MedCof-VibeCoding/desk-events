@@ -35,6 +35,9 @@ Supabase. Mudanças novas entram como arquivos novos nesta pasta, em ordem.
 O projeto da Vercel aponta para `apps/server` (Root Directory). Depois de publicado,
 `/api/health` responde `{ "ok": true }`.
 
+Os agentes trabalham numa fila em segundo plano; a configuração (CRON_SECRET e despertador
+do Supabase) está em `docs/fila.md`.
+
 ## Fases
 
 1. Base compartilhada: login, papéis, escritório e agentes (esta entrega)

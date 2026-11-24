@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase, type Ficha, type Agente } from './supabase';
 import { Icon } from './Icon';
-export const ESTADOS: Record<Ficha['estado'], string> = { fila: 'Na fila', trabalhando: 'Em andamento', aguardando_aprovacao: 'Aguardando aprovação', entregue: 'Concluída', cancelada: 'Cancelada', erro: 'Com erro' };
+export const ESTADOS: Record<Ficha['estado'], string> = { fila: 'Na fila', trabalhando: 'Em andamento', aguardando_aprovacao: 'Aguardando aprovação', aguardando_computador: 'Esperando o computador', entregue: 'Concluída', cancelada: 'Cancelada', erro: 'Com erro' };
 
 export function Atividade({ escritorioId, agentes, onAgente }: { escritorioId: string; agentes: Agente[]; onAgente: (id: string) => void }) {
   const [fichas, setFichas] = useState<Ficha[]>([]);

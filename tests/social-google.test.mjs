@@ -42,7 +42,7 @@ test('tokens Google são criptografados e adulterações são rejeitadas', () =>
 });
 test('presença expira e balões só aparecem para pessoas no café durante 12 segundos', () => {
   const agora = Date.parse('2030-01-01T12:00:00Z');
-  const pessoas = [{ user_id: id, zona: 'cafe', visto_em: new Date(agora - 1000).toISOString() }, { user_id: outro, zona: 'geral', visto_em: new Date(agora - 71000).toISOString() }];
+  const pessoas = [{ user_id: id, zona: 'cafe', visto_em: new Date(agora - 1000).toISOString() }, { user_id: outro, zona: 'geral', visto_em: new Date(agora - 151000).toISOString() }];
   assert.deepEqual(presentesAtivos(pessoas, agora).map(p => p.user_id), [id]);
   const mensagens = [{ id: 'velha', user_id: id, texto: 'Expirou', criado_em: new Date(agora - 13000).toISOString() }, { id: 'nova', user_id: id, texto: 'Oi', criado_em: new Date(agora - 1000).toISOString() }, { id: 'fora', user_id: outro, texto: 'Fora', criado_em: new Date(agora - 1000).toISOString() }];
   assert.deepEqual(Object.keys(baloesAtivos(mensagens, pessoas, agora)), [id]);

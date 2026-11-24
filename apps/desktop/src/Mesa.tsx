@@ -3,7 +3,7 @@ import { supabase, servidor } from './supabase';
 
 interface Pedido {
   id: string; criado_em: string;
-  pedido: { ferramenta?: string; args?: Record<string, unknown> };
+  pedido: { ferramenta?: string; args?: Record<string, unknown>; motivo?: string };
   fichas: { titulo: string } | null; agentes: { nome: string } | null;
 }
 const ACAO: Record<string, string> = { buscar_url: 'quer ler uma página da internet', pedir_aprovacao: 'pede a sua decisão', listar_arquivos: 'quer ver os arquivos de uma pasta do computador', ler_arquivo: 'quer ler um arquivo do computador', escrever_arquivo: 'quer gravar um arquivo no computador', rodar_comando: 'quer rodar um comando no computador' };
@@ -62,6 +62,7 @@ export function Mesa({ escritorioId, podeOperar, onFechar, onMudou }: { escritor
             <p><strong>{p.agentes?.nome ?? 'Um agente'}</strong> {ACAO[p.pedido.ferramenta ?? ''] ?? `quer usar ${p.pedido.ferramenta}`}</p>
             <p className="mudo">Ficha: {p.fichas?.titulo ?? 'sem título'}</p>
             <pre className="args">{detalhe(p.pedido)}</pre>
+            {p.pedido.motivo === 'conteudo_externo' && <p className="erro">Este agente costuma gravar sem pedir, mas nesta ficha ele leu páginas da internet. Confira se o conteúdo faz sentido antes de aprovar.</p>}
             {p.pedido.ferramenta === 'rodar_comando' && <p className="erro">Leia o comando inteiro antes de aprovar. Ele roda no seu computador, na pasta de trabalho da ponte. Se não entender o que ele faz, recuse.</p>}
             {podeOperar ? (
               <>

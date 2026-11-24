@@ -22,7 +22,7 @@ export interface Agente {
 export const PAPEL_ORDEM: Papel[] = ['leitor', 'operador', 'editor', 'dono'];
 export const pode = (meu: Papel | null, minimo: Papel) => !!meu && PAPEL_ORDEM.indexOf(meu) >= PAPEL_ORDEM.indexOf(minimo);
 
-export type EstadoFicha = 'fila' | 'trabalhando' | 'aguardando_aprovacao' | 'entregue' | 'cancelada' | 'erro';
+export type EstadoFicha = 'fila' | 'trabalhando' | 'aguardando_aprovacao' | 'aguardando_computador' | 'entregue' | 'cancelada' | 'erro';
 export interface Ficha { id: string; titulo: string; pedido: string; estado: EstadoFicha; resultado: string | null; agente_atual: string | null; criado_em: string }
 
 const SERVER = ((import.meta.env.VITE_SERVER_URL as string | undefined) || 'https://desk-events-server.vercel.app').replace(/\/$/, '');

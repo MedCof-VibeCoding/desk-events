@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { supabase, servidor, type Agente, type Ficha } from './supabase';
 import { Robot } from './Robot';
 
-const ESTADO: Record<string, string> = { fila: 'Na fila', trabalhando: 'Trabalhando', aguardando_aprovacao: 'Aguardando aprovação', entregue: 'Entregue', cancelada: 'Cancelada', erro: 'Erro' };
+const ESTADO: Record<string, string> = { fila: 'Na fila', trabalhando: 'Trabalhando', aguardando_aprovacao: 'Aguardando aprovação', aguardando_computador: 'Esperando o computador', entregue: 'Entregue', cancelada: 'Cancelada', erro: 'Erro' };
 
 export function AgentPanel({ agente, podeOperar, podeEditar, onFechar, onEditar, onExcluido }: { agente: Agente; podeOperar: boolean; podeEditar: boolean; onFechar: () => void; onEditar: () => void; onExcluido: () => void }) {
   const [fichas, setFichas] = useState<Ficha[]>([]);
@@ -47,13 +47,13 @@ export function AgentPanel({ agente, podeOperar, podeEditar, onFechar, onEditar,
   // Recoloca na fila uma ficha parada ou com erro e chama o agente de novo.
   async function tentar(f: Ficha) {
     setEnviando(true); setErro('');
-    const { error } = await supabase.from('fichas').update({ estado: 'fila', resultado: null }).eq('id', f.id);
+    const { error } = await supabase.rpc('retomar_ficha', { ficha: f.id });
     if (error) setErro(error.message);
     else { try { await servidor('/api/run', { method: 'POST', body: JSON.stringify({ fichaId: f.id }) }); } catch (x) { setErro((x as Error).message); } }
     await carregar(); setEnviando(false);
   }
   async function cancelar(f: Ficha) {
-    const { error } = await supabase.from('fichas').update({ estado: 'cancelada' }).eq('id', f.id);
+    const { error } = await supabase.rpc('cancelar_ficha', { ficha: f.id });
     if (error) setErro(error.message);
     carregar();
   }
@@ -90,7 +90,7 @@ export function AgentPanel({ agente, podeOperar, podeEditar, onFechar, onEditar,
         <form onSubmit={mandar}>
           <label htmlFor="pedido">Nova tarefa</label>
           <textarea id="pedido" rows={4} maxLength={8000} value={pedido} onChange={e => setPedido(e.target.value)} placeholder={`O que ${agente.nome} deve fazer?`} />
-          <button className="btn primario" disabled={enviando || !pedido.trim()}>{enviando ? `${agente.nome} está trabalhando…` : 'Mandar tarefa'}</button>
+          <button className="btn primario" disabled={enviando || !pedido.trim()}>{enviando ? 'Enviando…' : 'Mandar tarefa'}</button>
         </form>
       ) : <p className="mudo">Seu papel permite acompanhar, mas não mandar tarefas.</p>}
       {erro && <p className="erro" role="alert">{erro}</p>}
@@ -104,9 +104,9 @@ export function AgentPanel({ agente, podeOperar, podeEditar, onFechar, onEditar,
               <p className="pedido">{f.pedido}</p>
               <Passos fichaId={f.id} />
               {f.resultado && <div className={f.estado === 'erro' ? 'resultado erro' : 'resultado'}>{f.resultado}</div>}
-              {podeOperar && ['fila', 'erro', 'trabalhando'].includes(f.estado) && (
+              {podeOperar && ['fila', 'erro', 'trabalhando', 'aguardando_aprovacao', 'aguardando_computador'].includes(f.estado) && (
                 <div className="linha-acoes">
-                  {f.estado !== 'trabalhando' && <button className="btn pequeno" disabled={enviando} onClick={() => tentar(f)}>Tentar de novo</button>}
+                  {!f.estado.startsWith('aguardando_') && <button className="btn pequeno" disabled={enviando} onClick={() => tentar(f)}>{f.estado === 'trabalhando' ? 'Destravar' : 'Tentar de novo'}</button>}
                   <button className="btn pequeno" disabled={enviando} onClick={() => cancelar(f)}>Cancelar ficha</button>
                 </div>
               )}

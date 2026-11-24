@@ -1,6 +1,5 @@
 import { admin, exigirPapel, falha, json, preflight, usuario, HttpError } from '../lib/core.js';
-import { trabalhar } from '../lib/loop.js';
-import { bancoStore } from '../lib/store.js';
+import { emSegundoPlano, processar } from '../lib/fila.js';
 import { SO_O_DONO } from '../lib/tools.js';
 
 export const OPTIONS = () => preflight();
@@ -25,8 +24,9 @@ export async function POST(request: Request): Promise<Response> {
       .update({ estado: corpo.decisao, comentario: (corpo.comentario || '').trim().slice(0, 600) || null, decidido_por: user.id, decidido_em: new Date().toISOString() })
       .eq('id', ap.id).eq('estado', 'pendente').select('id');
     if (!feita?.length) throw new HttpError(409, 'Esse pedido já foi decidido por outra pessoa.');
-    const { data: pega } = await db.from('fichas').update({ estado: 'trabalhando' }).eq('id', ap.ficha_id).eq('estado', 'aguardando_aprovacao').select('id');
+    const { data: pega } = await db.from('fichas').update({ estado: 'fila', trabalhando_ate: null }).eq('id', ap.ficha_id).eq('estado', 'aguardando_aprovacao').select('id');
     if (!pega?.length) return json({ ok: true, estado: 'decidido' });
-    return json({ ok: true, ...(await trabalhar(bancoStore(), ap.ficha_id)) });
+    emSegundoPlano(processar({ so: ap.ficha_id, limite: 1 }));
+    return json({ ok: true, estado: 'fila' });
   } catch (e) { return falha(e); }
 }

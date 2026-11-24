@@ -94,7 +94,7 @@ h3 { font-size: .95rem; margin: 18px 0 6px; }
 .pedido-mesa p { margin: 0 0 4px; }
 .args { margin: 6px 0; padding: 8px; background: var(--bg); border-radius: 6px; font: .82rem/1.4 ui-monospace, Consolas, monospace; white-space: pre-wrap; word-break: break-word; max-height: 160px; overflow: auto; }
 .pedido-mesa .acoes { margin-top: 8px; }
-.estado.aguardando_aprovacao { color: #E3A008; border-color: currentColor; }
+.estado.aguardando_aprovacao, .estado.aguardando_computador { color: #E3A008; border-color: currentColor; }
 .linha-acoes { display: flex; gap: 6px; margin-top: 8px; }
 .ponte { font-size: .8rem; border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
 button.ponte { font: inherit; background: transparent; cursor: pointer; }

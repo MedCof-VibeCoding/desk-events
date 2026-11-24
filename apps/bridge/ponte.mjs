@@ -73,9 +73,19 @@ async function principal() {
   await bater();
   setInterval(bater, 20_000);
 
+  // Segunda barreira, além do banco: comando só roda com a aprovação desta pessoa para exatamente este comando.
+  const aprovado = async t => {
+    if (t.ferramenta !== 'rodar_comando') return true;
+    if (!t.aprovacao_id) return false;
+    const { data, error } = await supabase.from('aprovacoes').select('estado, decidido_por, ficha_id, pedido').eq('id', t.aprovacao_id).maybeSingle();
+    if (error || !data) return false;
+    return data.estado === 'aprovada' && data.decidido_por === user.id && data.ficha_id === t.ficha_id
+      && data.pedido?.ferramenta === t.ferramenta && String(data.pedido?.args?.comando ?? '') === String(t.args?.comando ?? '');
+  };
+
   const emCurso = new Set();
   const atender = async () => {
-    const { data: fila } = await supabase.from('tarefas_locais').select('id, ferramenta, args').eq('user_id', user.id).eq('estado', 'pendente').order('criado_em').limit(10);
+    const { data: fila } = await supabase.from('tarefas_locais').select('id, ficha_id, ferramenta, args, aprovacao_id').eq('user_id', user.id).eq('estado', 'pendente').order('criado_em').limit(10);
     for (const t of fila ?? []) {
       if (emCurso.has(t.id)) continue;
       emCurso.add(t.id);
@@ -83,6 +93,7 @@ async function principal() {
       if (!peguei?.length) { emCurso.delete(t.id); continue; }
       const alvo = t.args?.caminho ?? t.args?.pasta ?? t.args?.comando ?? '';
       try {
+        if (!(await aprovado(t))) throw new Error('Comando recusado pela ponte: não há aprovação sua para exatamente este comando.');
         const resultado = await executar(raiz, t.ferramenta, t.args, { comandos: COMANDOS });
         await supabase.from('tarefas_locais').update({ estado: 'feito', resultado }).eq('id', t.id);
         console.log(`[${hora()}] ${t.ferramenta} ${alvo} — feito`);

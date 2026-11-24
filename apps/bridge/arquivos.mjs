@@ -4,6 +4,8 @@ import path from 'node:path';
 import { rodar } from './comandos.mjs';
 
 const MAX_LER = 200_000, MAX_GRAVAR = 1_000_000, MAX_LISTA = 200;
+// Antes de substituir um arquivo, a versão anterior é guardada aqui (dentro da pasta de trabalho).
+export const COPIAS = '.deskcof-copias';
 const TEXTO = /\.(txt|md|markdown|csv|tsv|json|jsonl|yaml|yml|xml|html?|css|js|mjs|ts|tsx|jsx|py|sql|log|ini|toml|env\.example|srt|rtf)$/i;
 
 // Resolve um caminho relativo e recusa qualquer coisa que saia da pasta de trabalho,
@@ -53,10 +55,21 @@ export async function gravar(raiz, caminho, conteudo) {
   const texto = String(conteudo ?? '');
   if (Buffer.byteLength(texto) > MAX_GRAVAR) throw new Error('O conteúdo passa do limite de 1 MB.');
   if (!TEXTO.test(alvo)) throw new Error('Só é possível gravar arquivos de texto (txt, md, csv, json e parecidos).');
+  const raizReal = await fs.realpath(raiz);
+  const relativo = path.relative(raizReal, alvo);
+  if (relativo.split(path.sep)[0].toLowerCase() === COPIAS) throw new Error('A pasta de cópias de segurança não pode ser alterada pelos agentes.');
   const existia = await fs.stat(alvo).then(() => true, () => false);
+  let copia = '';
+  if (existia) {
+    const carimbo = new Date().toISOString().replace(/[:.]/g, '-');
+    const destino = path.join(raizReal, COPIAS, carimbo, relativo);
+    await fs.mkdir(path.dirname(destino), { recursive: true });
+    await fs.copyFile(alvo, destino);
+    copia = ` A versão anterior foi guardada em ${path.relative(raizReal, destino).split(path.sep).join('/')}.`;
+  }
   await fs.mkdir(path.dirname(alvo), { recursive: true });
   await fs.writeFile(alvo, texto, 'utf8');
-  return `${existia ? 'Arquivo substituído' : 'Arquivo criado'}: ${path.relative(await fs.realpath(raiz), alvo).split(path.sep).join('/')} (${Buffer.byteLength(texto)} bytes).`;
+  return `${existia ? 'Arquivo substituído' : 'Arquivo criado'}: ${relativo.split(path.sep).join('/')} (${Buffer.byteLength(texto)} bytes).${copia}`;
 }
 
 export async function executar(raiz, ferramenta, args, opcoes = {}) {

@@ -1,6 +1,6 @@
 import { HttpError } from './core.js';
 import { conversar as conversarPadrao, provedorValido, type Chamada, type Msg, type Resposta } from './providers.js';
-import { FERRAMENTAS, LOCAIS, SEMPRE_HUMANO, buscarUrl, precisaAprovar } from './tools.js';
+import { FERRAMENTAS, LOCAIS, SEMPRE_HUMANO, SO_O_DONO, buscarUrl, precisaAprovar, type Risco } from './tools.js';
 
 export interface AgenteRow { id: string; nome: string; cargo: string; instrucoes: string; provedor: string; modelo: string; autonomia: string; max_passos: number; ativo: boolean }
 export interface FichaRow { id: string; escritorio_id: string; pedido: string; estado: string; agente_atual: string | null; criado_por?: string | null }
@@ -21,9 +21,18 @@ export interface Store {
   // Skills ligadas ao agente (de fábrica e da sala). Opcional para os testes antigos.
   skills?(agenteId: string): Promise<SkillRow[]>;
   // Executa uma ferramenta no computador de quem criou a ficha, pela ponte local.
-  local(f: FichaRow, ferramenta: string, args: Record<string, unknown>): Promise<string>;
+  // `aprovacaoId` vai junto quando a ação passou pela aprovação do dono do computador:
+  // o banco e a ponte conferem essa aprovação antes de executar. `chamadaId` permite
+  // retomar a ficha e achar a resposta do pedido já enviado. Devolve null se a ponte
+  // ainda não respondeu: a ficha passa a esperar o computador.
+  local(f: FichaRow, ferramenta: string, args: Record<string, unknown>, aprovacaoId?: string, chamadaId?: string): Promise<string | null>;
 }
-export interface Deps { conversar?: typeof conversarPadrao; buscar?: (url: unknown) => Promise<string> }
+export interface Deps {
+  conversar?: typeof conversarPadrao; buscar?: (url: unknown) => Promise<string>;
+  // Hora (ms) a partir da qual o ciclo devolve a ficha para a fila e para, num ponto seguro,
+  // para a próxima execução continuar. Sem prazo, trabalha até terminar.
+  prazo?: number;
+}
 
 // Skills entram nas instruções do agente, com teto de tamanho para não estourar o contexto.
 export function blocoSkills(skills: SkillRow[], teto = 14000): string {
@@ -56,6 +65,10 @@ export async function trabalhar(store: Store, fichaId: string, deps: Deps = {}):
   for (let volta = 0; volta < 60; volta++) {
     const ficha = await store.ficha(fichaId);
     if (!ficha) throw new HttpError(404, 'Ficha não encontrada.');
+    // Cancelada por uma pessoa enquanto o agente trabalhava: para aqui, sem sobrescrever.
+    if (ficha.estado === 'cancelada') return { estado: 'cancelada' };
+    // Tempo desta execução acabando: tudo até aqui está salvo, a próxima continua daqui.
+    if (deps.prazo && volta > 0 && Date.now() >= deps.prazo) { await store.setFicha(ficha.id, { estado: 'fila', trabalhando_ate: null }); return { estado: 'fila' }; }
     if (await store.pausado(ficha.escritorio_id)) { await store.setFicha(ficha.id, { estado: 'fila' }); throw new HttpError(409, 'O escritório está pausado.'); }
     const agente = ficha.agente_atual ? await store.agente(ficha.agente_atual) : null;
     if (!agente || !agente.ativo) throw new HttpError(400, 'O agente desta ficha não existe ou está desativado.');
@@ -76,11 +89,18 @@ export async function trabalhar(store: Store, fichaId: string, deps: Deps = {}):
 
     if (pendentes.length) {
       const aprovacoes = await store.aprovacoes(ficha.id);
+      // Esta ficha já trouxe conteúdo da internet (com qualquer agente)? Então pode carregar instruções maliciosas.
+      let externo = todos.some(p => p.conteudo?.msg?.role === 'tool' && p.conteudo.msg.nome === 'buscar_url');
       let repassou = false;
       for (const c of pendentes) {
-        const r = await resolver(c, agente, colegas, aprovacoes, buscar, a => store.local(ficha, c.nome, a));
+        const r = await resolver(c, agente, colegas, aprovacoes, buscar, (a, aprovacaoId) => store.local(ficha, c.nome, a, aprovacaoId, c.id), externo);
+        if (c.nome === 'buscar_url') externo = true;
+        if (r.tipo === 'computador') {
+          await store.setFicha(ficha.id, { estado: 'aguardando_computador', trabalhando_ate: null });
+          return { estado: 'aguardando_computador' };
+        }
         if (r.tipo === 'esperar') {
-          if (r.criar) await store.addAprovacao(ficha, agente.id, { chamadaId: c.id, ferramenta: c.nome, args: c.args });
+          if (r.criar) await store.addAprovacao(ficha, agente.id, { chamadaId: c.id, ferramenta: c.nome, args: c.args, ...(r.motivo ? { motivo: r.motivo } : {}) });
           await store.setFicha(ficha.id, { estado: 'aguardando_aprovacao' });
           return { estado: 'aguardando_aprovacao' };
         }
@@ -127,9 +147,9 @@ export async function trabalhar(store: Store, fichaId: string, deps: Deps = {}):
   throw new HttpError(500, 'A ficha passou por agentes demais sem terminar.');
 }
 
-type Resolucao = { tipo: 'texto'; texto: string } | { tipo: 'esperar'; criar: boolean } | { tipo: 'repasse'; alvo: AgenteRow; mensagem: string };
+type Resolucao = { tipo: 'texto'; texto: string } | { tipo: 'esperar'; criar: boolean; motivo?: string } | { tipo: 'computador' } | { tipo: 'repasse'; alvo: AgenteRow; mensagem: string };
 
-async function resolver(c: Chamada, agente: AgenteRow, colegas: AgenteRow[], aprovacoes: AprovacaoRow[], buscar: (u: unknown) => Promise<string>, local: (args: Record<string, unknown>) => Promise<string>): Promise<Resolucao> {
+async function resolver(c: Chamada, agente: AgenteRow, colegas: AgenteRow[], aprovacoes: AprovacaoRow[], buscar: (u: unknown) => Promise<string>, local: (args: Record<string, unknown>, aprovacaoId?: string) => Promise<string | null>, externo = false): Promise<Resolucao> {
   const def = FERRAMENTAS.find(t => t.nome === c.nome);
   if (!def) return { tipo: 'texto', texto: `A ferramenta "${c.nome}" não existe.` };
   if (c.nome === 'passar_ficha') {
@@ -139,15 +159,24 @@ async function resolver(c: Chamada, agente: AgenteRow, colegas: AgenteRow[], apr
     return { tipo: 'repasse', alvo, mensagem: String(c.args.mensagem ?? '') };
   }
   const pedeHumano = c.nome === 'pedir_aprovacao';
-  if (SEMPRE_HUMANO.has(c.nome) || precisaAprovar(agente.autonomia, def.risco)) {
+  let aprovada: AprovacaoRow | undefined;
+  // Depois de ler a internet, gravar no computador sempre passa por aprovação, mesmo no modo
+  // autônomo: um texto malicioso numa página poderia induzir o agente a sobrescrever arquivos.
+  const contaminada = def.risco === 'escrita' && externo;
+  const risco: Risco = contaminada ? 'irreversivel' : def.risco;
+  if (SEMPRE_HUMANO.has(c.nome) || precisaAprovar(agente.autonomia, risco)) {
     const a = aprovacoes.find(x => x.pedido?.chamadaId === c.id);
-    if (!a) return { tipo: 'esperar', criar: true };
+    if (!a) return { tipo: 'esperar', criar: true, motivo: contaminada && !precisaAprovar(agente.autonomia, def.risco) ? 'conteudo_externo' : undefined };
     if (a.estado === 'pendente') return { tipo: 'esperar', criar: false };
     const nota = a.comentario ? ` Comentário: ${a.comentario}` : '';
     if (a.estado === 'recusada') return { tipo: 'texto', texto: `Recusado por uma pessoa do time.${nota} Não execute essa ação; siga por outro caminho ou encerre explicando.` };
     if (pedeHumano) return { tipo: 'texto', texto: `Aprovado por uma pessoa do time.${nota}` };
+    aprovada = a;
   }
   if (c.nome === 'buscar_url') return { tipo: 'texto', texto: await buscar(c.args.url) };
-  if (LOCAIS.has(c.nome)) return { tipo: 'texto', texto: await local(c.args) };
+  if (LOCAIS.has(c.nome)) {
+    const texto = await local(c.args, aprovada && SO_O_DONO.has(c.nome) ? aprovada.id : undefined);
+    return texto === null ? { tipo: 'computador' } : { tipo: 'texto', texto };
+  }
   return { tipo: 'texto', texto: 'Sem resultado.' };
 }

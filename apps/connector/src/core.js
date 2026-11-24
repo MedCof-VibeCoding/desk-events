@@ -47,7 +47,7 @@ export class Conector {
 
   async atender() {
     if (!this.userId || !this.raiz) return;
-    const { data: fila } = await this.supabase.from('tarefas_locais').select('id, ferramenta, args')
+    const { data: fila } = await this.supabase.from('tarefas_locais').select('id, ficha_id, ferramenta, args, aprovacao_id')
       .eq('user_id', this.userId).eq('estado', 'pendente').order('criado_em').limit(10);
     for (const t of fila ?? []) {
       if (this.emCurso.has(t.id)) continue;
@@ -58,6 +58,7 @@ export class Conector {
         if (!peguei?.length) continue;
         const alvo = t.args?.caminho ?? t.args?.pasta ?? t.args?.comando ?? '';
         try {
+          if (!(await this.aprovado(t))) throw new Error('Comando recusado pelo Conector: não há aprovação sua para exatamente este comando.');
           const resultado = await this.executar(this.raiz, t.ferramenta, t.args ?? {}, { comandos: this.comandos });
           await this.supabase.from('tarefas_locais').update({ estado: 'feito', resultado }).eq('id', t.id);
           this.feitos++;
@@ -68,6 +69,17 @@ export class Conector {
         }
       } finally { this.emCurso.delete(t.id); }
     }
+  }
+
+  // Segunda barreira, além do banco: um comando só roda se esta pessoa aprovou
+  // exatamente este comando, nesta ficha, na Sua mesa.
+  async aprovado(t) {
+    if (t.ferramenta !== 'rodar_comando') return true;
+    if (!t.aprovacao_id) return false;
+    const { data, error } = await this.supabase.from('aprovacoes').select('estado, decidido_por, ficha_id, pedido').eq('id', t.aprovacao_id).maybeSingle();
+    if (error || !data) return false;
+    return data.estado === 'aprovada' && data.decidido_por === this.userId && data.ficha_id === t.ficha_id
+      && data.pedido?.ferramenta === t.ferramenta && String(data.pedido?.args?.comando ?? '') === String(t.args?.comando ?? '');
   }
 
   desligarTimers() { for (const t of this.timers) clearInterval(t); this.timers = []; }
