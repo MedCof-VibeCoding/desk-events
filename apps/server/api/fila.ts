@@ -18,6 +18,9 @@ async function atender(request: Request): Promise<Response> {
     // Pedido para a ponte sem resposta há 10 minutos: encerra com erro, e a ficha retoma sem ele.
     await admin().from('tarefas_locais').update({ estado: 'erro', resultado: 'A ponte local não respondeu em 10 minutos.' })
       .in('estado', ['pendente', 'executando']).lt('criado_em', new Date(Date.now() - 10 * 60_000).toISOString());
+    // Dispara as tarefas programadas que venceram (o banco também faz isso a cada minuto; aqui é a rede de segurança).
+    const { error } = await admin().rpc('executar_agendas');
+    if (error) console.error('executar_agendas', error.message);
     emSegundoPlano(processar({ limite: 5 }));
     return json({ ok: true }, 202);
   } catch (e) { return falha(e); }

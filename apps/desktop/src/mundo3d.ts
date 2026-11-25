@@ -1,8 +1,12 @@
 import { avatarDe } from './personagens';
-import { ModelosAvatar, type AvatarAnimado } from './avatar3d';
+import { ModelosAvatar, type AvatarMovel } from './avatar3d';
 import * as THREE from 'three';
 import { montarSala, montarPosto, type Posto } from './mobilia3d';
+import { estiloDe, type Ambiente } from './ambientes';
+import { montarMovel, descartarObjeto } from './moveisModulares3d';
+import { CaminhosAmbiente } from './caminhosAmbiente';
 import type { Agente, Aparencia } from './supabase';
+import { avancarPasso } from './pixelMarcha';
 
 // Mundo 3D do escritório: sala, móveis e bonecos. Sem DOM, para poder ser testado fora do navegador.
 const MESAS_X = [-5.4, -1.8, 1.8, 5.4];
@@ -31,8 +35,8 @@ export function tracar(de: P, para: P): P[] {
 
 interface Boneco {
   grupo: THREE.Group; corpo: THREE.Group; anel: THREE.Mesh; avatar: THREE.Sprite;
-  animado?: AvatarAnimado;
-  rota: P[]; espera: number; ocupado: boolean; festa: number; fase: number; chave: string; indice: number;
+  animado?: AvatarMovel;
+  rota: P[]; espera: number; ocupado: boolean; festa: number; fase: number; chave: string; indice: number; velocidade:number;
 }
 function montarBoneco(ap: Aparencia, textura: THREE.Texture): Pick<Boneco, 'grupo' | 'corpo' | 'anel' | 'avatar'> {
   const grupo = new THREE.Group(), corpo = new THREE.Group();
@@ -62,6 +66,10 @@ export class Mundo {
   private texturas = new Map<string, THREE.Texture>();
   private postos = new Map<number, Posto>();
   private modelos = new ModelosAvatar();
+  private ambiente?: Ambiente;
+  private moveis = new Map<string, THREE.Group>();
+  private destaque?: THREE.BoxHelper;
+  private caminhos?: CaminhosAmbiente;
 
   constructor() {
     this.scene.background = new THREE.Color('#080808');
@@ -72,6 +80,45 @@ export class Mundo {
     this.scene.add(sol);
     montarSala(this.scene);
     for (let i = 0; i < 12; i++) this.postos.set(i, montarPosto(this.scene, mesaDe(i), i));
+  }
+
+  configurar(ambiente: Ambiente) {
+    this.ambiente = ambiente;
+    this.selecionarMovel(null);
+    const sala=this.scene.getObjectByName('ambiente'); if(sala) descartarObjeto(sala);
+    for(const p of this.postos.values()) if(!this.moveis.has(p.grupo.userData.movelId)) descartarObjeto(p.grupo);
+    for(const m of this.moveis.values()) descartarObjeto(m);
+    this.postos.clear(); this.moveis.clear();
+    const estilo=estiloDe(ambiente.estilo);
+    montarSala(this.scene,estilo,true);
+    for(const item of ambiente.itens) {
+      let g:THREE.Group;
+      if(item.tipo==='posto') { const p=montarPosto(this.scene,item,item.slot!,estilo); p.grupo.rotation.y=item.giro*Math.PI/2; p.grupo.userData.movelId=item.id; this.postos.set(item.slot!,p); g=p.grupo; }
+      else { g=montarMovel(item,estilo); this.scene.add(g); }
+      this.moveis.set(item.id,g);
+    }
+    this.caminhos=new CaminhosAmbiente(ambiente);
+    for(const b of this.bonecos.values()) { const casa=this.casa(b.indice); b.grupo.position.set(casa.x,0,casa.z); b.rota=[]; }
+  }
+  private casa(i:number):P {
+    const posto=this.ambiente?.itens.find(m=>m.tipo==='posto' && m.slot===i);
+    if(!posto) return this.posicaoLivre(casaDe(i));
+    const a=posto.giro*Math.PI/2;
+    // Ponto de trabalho ao lado da cadeira, fora do volume sólido.
+    return this.posicaoLivre({x:posto.x+Math.cos(a)*.95+Math.sin(a)*1.1,z:posto.z-Math.sin(a)*.95+Math.cos(a)*1.1});
+  }
+  caminho(de:P,para:P):P[] { return this.caminhos?.rota(de,para) ?? tracar(de,para); }
+  posicaoLivre(p:P):P { return this.caminhos?.livre(p) ?? p; }
+  limitarPasso(de:P,para:P):P { return this.caminhos?.mover(de,para) ?? para; }
+  selecionarMovel(id:string|null) {
+    if(this.destaque) { this.destaque.geometry.dispose(); (this.destaque.material as THREE.Material).dispose(); this.destaque.removeFromParent(); this.destaque=undefined; }
+    const g=id ? this.moveis.get(id) : undefined;
+    if(g) { this.destaque=new THREE.BoxHelper(g,0xff6175); this.scene.add(this.destaque); }
+  }
+  preverMovel(id:string,x:number,z:number) { const g=this.moveis.get(id);if(g){g.position.x=x;g.position.z=z;this.destaque?.update();} }
+  alvoMovel(raio:THREE.Raycaster):string|null {
+    for(const hit of raio.intersectObjects([...this.moveis.values()],true)) { let o:THREE.Object3D|null=hit.object; while(o){ if(o.userData.movelId) return o.userData.movelId as string; o=o.parent; } }
+    return null;
   }
 
   // Cria, atualiza e remove bonecos e mesas conforme a lista de agentes.
@@ -91,13 +138,13 @@ export class Mundo {
           textura.colorSpace = THREE.SRGBColorSpace;
           this.texturas.set(personagem.id, textura);
         }
-        const m = montarBoneco(a.aparencia, textura), lar = casaDe(slot);
+        const m = montarBoneco(a.aparencia, textura), lar = this.casa(slot);
         m.grupo.position.set(antigo?.grupo.position.x ?? lar.x, 0, antigo?.grupo.position.z ?? lar.z);
         m.grupo.rotation.y = Math.PI; m.grupo.userData.id = a.id;
-        b = { ...m, rota: antigo?.rota ?? [], espera: 1 + Math.random() * 4, ocupado: false, festa: 0, fase: Math.random() * 6, chave, indice: slot };
+        b = { ...m, rota: antigo?.rota ?? [], espera: 1 + Math.random() * 4, ocupado: false, festa: 0, fase: Math.random() * 6, chave, indice: slot, velocidade:antigo?.velocidade??0 };
         this.bonecos.set(a.id, b); this.scene.add(m.grupo);
         const atual = b;
-        void this.modelos.criar(personagem.modelo).then(animado => {
+        void this.modelos.criarAparencia(a.aparencia).then(animado => {
           if (!animado) return;
           if (this.bonecos.get(a.id) !== atual) { animado.destruir(); return; }
           atual.animado = animado; atual.corpo.add(animado.root);
@@ -107,7 +154,7 @@ export class Mundo {
       }
       b.indice = slot;
       const ocupado = ocupados.has(a.id) && a.ativo;
-      if (ocupado && !b.ocupado) b.rota = tracar({ x: b.grupo.position.x, z: b.grupo.position.z }, casaDe(slot));
+      if (ocupado && !b.ocupado) b.rota = this.caminho({ x: b.grupo.position.x, z: b.grupo.position.z }, this.casa(slot));
       if (!ocupado && b.ocupado) { b.festa = 1.6; b.espera = 2.5; }
       b.ocupado = ocupado;
       b.anel.visible = selecionado === a.id;
@@ -120,26 +167,32 @@ export class Mundo {
   passo(dt: number, parado = false) {
     const ligadas = new Set<number>();
     for (const b of this.bonecos.values()) {
-      const pos = b.grupo.position, lar = casaDe(b.indice), ativo = b.grupo.userData.ativo !== false;
+      const pos = b.grupo.position, lar = this.casa(b.indice), ativo = b.grupo.userData.ativo !== false;
       const xAntes = pos.x, zAntes = pos.z;
       b.fase += dt;
-      if (parado) { pos.set(lar.x, 0, lar.z); b.rota = []; }
+      if (parado) { pos.set(lar.x, 0, lar.z); b.rota = []; b.velocidade=0; }
       // A imagem de espera não tem articulações: só deslocar o modelo animado.
       else if (ativo && b.animado && b.rota.length) {
-        const alvo = b.rota[0], dx = alvo.x - pos.x, dz = alvo.z - pos.z, d = Math.hypot(dx, dz), anda = VEL * dt;
-        if (d > 0) b.grupo.rotation.y = Math.atan2(dx, dz);
-        if (d <= anda) { pos.x = alvo.x; pos.z = alvo.z; b.rota.shift(); } else { pos.x += (dx / d) * anda; pos.z += (dz / d) * anda; }
+        const alvo = b.rota[0], dx = alvo.x - pos.x, dz = alvo.z - pos.z, d = Math.hypot(dx, dz);
+        const passo=avancarPasso(b.velocidade,d,dt,VEL,b.rota.length===1),anda=passo.distancia;b.velocidade=passo.velocidade;
+        if (d > 0) { const giro=Math.atan2(Math.sin(Math.atan2(dx,dz)-b.grupo.rotation.y),Math.cos(Math.atan2(dx,dz)-b.grupo.rotation.y)); b.grupo.rotation.y+=giro*(1-Math.exp(-dt*12)); }
+        const desejado=d<=anda?alvo:{x:pos.x+(dx/d)*anda,z:pos.z+(dz/d)*anda};
+        const seguro=this.limitarPasso({x:pos.x,z:pos.z},desejado);
+        pos.x=seguro.x;pos.z=seguro.z;
+        if(Math.hypot(seguro.x-desejado.x,seguro.z-desejado.z)>.0001){b.rota=[];b.velocidade=0;}
+        else if(d<=anda)b.rota.shift();
       } else if (!b.ocupado && ativo && b.animado) {
         b.espera -= dt;
         if (b.espera <= 0) {
           const r = Math.random();
           const destino = r < 0.3 ? lar : r < 0.75 ? PONTOS[Math.floor(Math.random() * PONTOS.length)] : { x: -8 + Math.random() * 15.6, z: FAIXAS[Math.floor(Math.random() * FAIXAS.length)] };
-          b.rota = tracar({ x: pos.x, z: pos.z }, destino); b.espera = 2 + Math.random() * 6;
+          b.rota = this.caminho({ x: pos.x, z: pos.z }, destino); b.espera = 2 + Math.random() * 6;
         }
       }
       const velocidade = dt > 0 && !parado ? Math.hypot(pos.x - xAntes, pos.z - zAntes) / dt : 0;
-      const andando = velocidade > 0, naMesa = !andando && !b.rota.length && b.ocupado;
-      if (naMesa) { b.grupo.rotation.y = Math.PI; ligadas.add(b.indice); }
+      if(!ativo||!b.rota.length)b.velocidade=0;
+      const andando = velocidade > 0, naMesa = !andando && !b.rota.length && b.ocupado && Math.hypot(pos.x-lar.x,pos.z-lar.z)<.35;
+      if (naMesa) { b.grupo.rotation.y = Math.PI + (this.ambiente?.itens.find(i=>i.slot===b.indice && i.tipo==='posto')?.giro ?? 0)*Math.PI/2; ligadas.add(b.indice); }
       if (b.festa > 0) b.festa -= dt;
       b.corpo.position.y = 0;
       if (b.animado) b.animado.passo(dt, andando ? 'Walk' : naMesa ? 'Type' : b.festa > 0 ? 'Wave' : 'Idle', parado || !ativo, velocidade);
@@ -152,12 +205,12 @@ export class Mundo {
     const b = this.bonecos.get(id); if (!b) return false;
     saida.set(b.grupo.position.x, 2.15 + b.corpo.position.y, b.grupo.position.z); return true;
   }
-  ocupadoNaMesa(id: string) { const b = this.bonecos.get(id); return !!b && b.ocupado && !b.rota.length; }
+  ocupadoNaMesa(id: string) { const b = this.bonecos.get(id); if(!b)return false;const casa=this.casa(b.indice);return b.ocupado && !b.rota.length && Math.hypot(b.grupo.position.x-casa.x,b.grupo.position.z-casa.z)<.35; }
 
-  // Qual agente está sob o clique.
-  alvo(raio: THREE.Raycaster): string | null {
+  /** Agente sob o clique, com a distância até a câmera. */
+  alvo(raio: THREE.Raycaster): { id: string; distancia: number } | null {
     const hits = raio.intersectObjects([...this.bonecos.values()].map(b => b.grupo), true);
-    for (const h of hits) { let o: THREE.Object3D | null = h.object; while (o) { if (o.userData.id) return o.userData.id as string; o = o.parent; } }
+    for (const h of hits) { let o: THREE.Object3D | null = h.object; while (o) { if (o.userData.id) return { id: o.userData.id as string, distancia: h.distance }; o = o.parent; } }
     return null;
   }
   posicao(id: string) { const b = this.bonecos.get(id); return b ? { x: b.grupo.position.x, z: b.grupo.position.z } : null; }

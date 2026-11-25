@@ -17,5 +17,8 @@ select vault.create_secret('TROQUE-PELO-CRON_SECRET', 'deskcof_fila_segredo');
 -- Despertador de 1 em 1 minuto.
 select cron.schedule('deskcof-fila', '* * * * *', $$select public.acordar_fila()$$);
 
+-- Despertador das tarefas programadas (migração 0011): a cada minuto cria as fichas das agendas que venceram.
+select cron.schedule('deskcof-agendas', '* * * * *', $$select public.executar_agendas()$$);
+
 -- Para conferir: select * from cron.job_run_details order by start_time desc limit 5;
 -- Para trocar um valor: select vault.update_secret((select id from vault.secrets where name = 'deskcof_fila_url'), 'https://novo/api/fila');

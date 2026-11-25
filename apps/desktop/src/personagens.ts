@@ -1,4 +1,6 @@
 import type { Aparencia } from './supabase';
+import { pixelDe, equipamentosDe } from './pixelCatalogo';
+import { roupaDe } from './pixelRoupas';
 
 export const PERSONAGENS = [
   { id: 'atlas', nome: 'Atlas', cargo: 'Produção' },
@@ -28,6 +30,7 @@ export function avatarDe(aparencia: Aparencia) {
 
 export function normalizarAparencia(aparencia: Aparencia): Aparencia {
   const avatar = avatarDe(aparencia);
+  if (aparencia.estilo === 'pixel') return { ...aparencia, personagem: avatar.personagem, versao: avatar.versao, look: avatar.look, avatarPixel: pixelDe(aparencia).id, acessorios: equipamentosDe(aparencia), roupaPixel: roupaDe(aparencia) };
   return { ...aparencia, personagem: avatar.personagem, versao: avatar.versao, look: avatar.look };
 }
 

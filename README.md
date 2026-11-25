@@ -37,6 +37,7 @@ O projeto da Vercel aponta para `apps/server` (Root Directory). Depois de public
 
 Os agentes trabalham numa fila em segundo plano; a configuração (CRON_SECRET e despertador
 do Supabase) está em `docs/fila.md`.
+Tarefas programadas (agendas contínuas, com garantia contra duplicidade e atrasos): `docs/tarefas-programadas.md`.
 
 ## Fases
 

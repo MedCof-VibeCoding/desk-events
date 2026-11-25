@@ -1,0 +1,25 @@
+.form-agenda { display: grid; gap: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; margin-bottom: 24px; max-width: 760px; }
+.grade-form-agenda { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.form-agenda fieldset { border: 1px solid var(--line); border-radius: var(--radius); margin: 8px 0 0; padding: 10px 14px 12px; }
+.form-agenda legend { font-weight: 600; font-size: .85rem; padding: 0 6px; color: var(--muted); }
+.dias-semana { display: flex; flex-wrap: wrap; gap: 8px; }
+.dia-opcao, .opcao { display: flex; align-items: center; gap: 8px; margin: 0; font-weight: 500; cursor: pointer; }
+.dia-opcao input, .opcao input { width: auto; margin: 0; }
+.dia-opcao { padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-2); }
+.opcao { align-items: flex-start; margin-bottom: 8px; }
+.tolerancia input { max-width: 140px; }
+.lista-agendas { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; max-width: 760px; }
+.card-agenda { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; }
+.card-agenda.pausada { opacity: .78; }
+.topo-agenda { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.topo-agenda h3 { margin: 0 0 4px; font-size: 1.05rem; }
+.selo-agenda { font-size: .72rem; font-weight: 650; padding: 2px 10px; border-radius: 999px; border: 1px solid currentColor; flex-shrink: 0; }
+.selo-agenda.ativa { color: var(--ok); } .selo-agenda.parada { color: var(--muted); }
+.card-agenda .pedido { white-space: pre-wrap; max-height: 5.2em; overflow: hidden; margin: 10px 0; }
+.fatos-agenda { display: flex; flex-wrap: wrap; gap: 6px 24px; margin: 0 0 8px; }
+.fatos-agenda dt { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.fatos-agenda dd { margin: 0; font-weight: 600; font-size: .9rem; }
+.aviso-agenda { color: #E3A008; font-size: .85rem; margin: 4px 0; }
+.historico-agenda { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; font-size: .85rem; }
+.historico-agenda li { display: flex; gap: 12px; } .historico-agenda time { color: var(--muted); min-width: 92px; }
+.card-agenda .linha-acoes { flex-wrap: wrap; }

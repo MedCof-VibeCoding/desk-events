@@ -72,5 +72,5 @@ export function useSalaSocial(sala: string | undefined, perfil: Perfil) {
   }
   const presentes = useMemo(() => presentesAtivos(pessoas, agora), [pessoas, agora]);
   const baloes = useMemo(() => baloesAtivos(mensagens, presentes, agora), [mensagens, presentes, agora]);
-  return { pessoas: presentes, mensagens, baloes, zona, ir, falar, erro };
+  return { pessoas: presentes, mensagens, baloes, zona, ir, falar, erro, atualizar: carregar };
 }

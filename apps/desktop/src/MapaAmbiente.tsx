@@ -1,0 +1,7 @@
+import { limitesItem, movelDe, estiloDe, type Ambiente } from './ambientes';
+export function MapaAmbiente({ambiente,selecionado,onSelecionar}:{ambiente:Ambiente;selecionado?:string|null;onSelecionar?:(id:string)=>void}) {
+  const e=estiloDe(ambiente.estilo),largura=840,altura=620;
+  return <div className="mapa-ambiente"><p className="mudo">Visualização 2D: o 3D não está disponível neste navegador. Use a lista e os controles para decorar.</p><svg viewBox={`0 0 ${largura} ${altura}`} role="group" aria-label={`Planta do escritório ${e.nome}`} style={{background:e.piso,width:'100%',maxHeight:600,borderRadius:12}}>
+    {[...ambiente.itens].sort((a,b)=>Number(!!movelDe(b.tipo)?.tapete)-Number(!!movelDe(a.tipo)?.tapete)).map(i=>{const b=limitesItem(i),d=movelDe(i.tipo)!;return <g key={i.id} role={onSelecionar?'button':undefined} tabIndex={onSelecionar?0:undefined} aria-label={d.nome+(i.slot!==undefined?` ${i.slot+1}`:'')} onClick={()=>onSelecionar?.(i.id)} onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();onSelecionar?.(i.id);}}}><rect x={(b.minX+10.5)*40} y={(b.minZ+7.5)*40} width={(b.maxX-b.minX)*40} height={(b.maxZ-b.minZ)*40} rx={4} fill={d.cor??e.madeira} stroke={selecionado===i.id?'#ff6175':e.parede} strokeWidth={selecionado===i.id?4:1}/><text x={(i.x+10.5)*40} y={(i.z+7.5)*40+4} textAnchor="middle" fontSize={10} fill="#111">{i.slot!==undefined?`Mesa ${i.slot+1}`:d.nome}</text></g>;})}
+  </svg></div>;
+}

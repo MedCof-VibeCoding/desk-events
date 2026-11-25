@@ -1,15 +1,21 @@
 import * as THREE from 'three';
+import type { Estilo } from './ambientes';
 
 const material = (cor: string, emissive = '#000000') => new THREE.MeshLambertMaterial({ color: cor, emissive: new THREE.Color(emissive) });
-const paleta = () => ({
+export const paleta = () => ({
   carvalho: material('#B79876'), madeira: material('#715844'), preto: material('#18191B'), metal: material('#343638'),
   tecido: material('#44494A'), claro: material('#DFD8CB'), vermelho: material('#AD293B'), verde: material('#47745D'),
   folha: material('#72A17C'), vaso: material('#D6C5AE'), papel: material('#F4EDE0'), luz: material('#FFE6BB', '#8A6132'),
 });
-type Paleta = ReturnType<typeof paleta>;
+export type Paleta = ReturnType<typeof paleta>;
+export function paletaEstilo(estilo: Estilo) {
+  const p = paleta();
+  p.carvalho.color.set(estilo.madeira); p.tecido.color.set(estilo.tecido); p.vermelho.color.set(estilo.destaque);
+  return p;
+}
 
 // Cantos arredondados no plano do móvel, sem texturas externas.
-function bloco(pai: THREE.Object3D, w: number, h: number, d: number, x: number, y: number, z: number, m: THREE.Material, raio = 0, sombra = true) {
+export function bloco(pai: THREE.Object3D, w: number, h: number, d: number, x: number, y: number, z: number, m: THREE.Material, raio = 0, sombra = true) {
   let geometria: THREE.BufferGeometry;
   if (raio > 0) {
     const r = Math.min(raio, w / 2, d / 2), a = -w / 2, b = -d / 2;
@@ -23,14 +29,14 @@ function bloco(pai: THREE.Object3D, w: number, h: number, d: number, x: number, 
   } else geometria = new THREE.BoxGeometry(w, h, d);
   const mesh = new THREE.Mesh(geometria, m); mesh.position.set(x, y, z); mesh.castShadow = sombra; mesh.receiveShadow = true; pai.add(mesh); return mesh;
 }
-function cilindro(pai: THREE.Object3D, raio: number, h: number, x: number, y: number, z: number, m: THREE.Material, topo = raio) {
+export function cilindro(pai: THREE.Object3D, raio: number, h: number, x: number, y: number, z: number, m: THREE.Material, topo = raio) {
   const mesh = new THREE.Mesh(new THREE.CylinderGeometry(topo, raio, h, 16), m);
   mesh.position.set(x, y, z); mesh.castShadow = true; mesh.receiveShadow = true; pai.add(mesh); return mesh;
 }
-function grupo(pai: THREE.Object3D, nome: string, x = 0, z = 0, giro = 0) {
+export function grupo(pai: THREE.Object3D, nome: string, x = 0, z = 0, giro = 0) {
   const g = new THREE.Group(); g.name = nome; g.position.set(x, 0, z); g.rotation.y = giro; pai.add(g); return g;
 }
-function planta(pai: THREE.Object3D, x: number, y: number, z: number, p: Paleta, escala = 1) {
+export function planta(pai: THREE.Object3D, x: number, y: number, z: number, p: Paleta, escala = 1) {
   const g = grupo(pai, 'planta', x, z); g.position.y = y; g.scale.setScalar(escala);
   cilindro(g, .22, .42, 0, .21, 0, p.vaso, .29);
   cilindro(g, .245, .025, 0, .43, 0, p.madeira);
@@ -41,7 +47,7 @@ function planta(pai: THREE.Object3D, x: number, y: number, z: number, p: Paleta,
     folha.rotation.set(Math.cos(a) * .65, a, Math.sin(a) * .65); folha.castShadow = true; g.add(folha);
   }
 }
-function cadeira(pai: THREE.Object3D, x: number, z: number, p: Paleta, giro = 0, cor = p.tecido) {
+export function cadeira(pai: THREE.Object3D, x: number, z: number, p: Paleta, giro = 0, cor = p.tecido) {
   const g = grupo(pai, 'cadeira', x, z, giro);
   bloco(g, .57, .12, .56, 0, .49, 0, cor, .12);
   bloco(g, .57, .55, .12, 0, .83, .24, cor, .05);
@@ -52,7 +58,7 @@ function cadeira(pai: THREE.Object3D, x: number, z: number, p: Paleta, giro = 0,
     bloco(g, .09, .055, .34, lado * .3, .73, .02, p.preto, .03);
   }
 }
-function sofa(pai: THREE.Object3D, x: number, z: number, giro: number, p: Paleta) {
+export function sofa(pai: THREE.Object3D, x: number, z: number, giro: number, p: Paleta) {
   const g = grupo(pai, 'sofa', x, z, giro);
   bloco(g, 2.35, .24, .85, 0, .25, 0, p.preto, .12);
   bloco(g, 2.35, .64, .2, 0, .63, -.34, p.tecido, .08);
@@ -63,7 +69,7 @@ function sofa(pai: THREE.Object3D, x: number, z: number, giro: number, p: Paleta
     almofada.rotation.z = lado * .16;
   }
 }
-function estante(pai: THREE.Object3D, x: number, z: number, p: Paleta) {
+export function estante(pai: THREE.Object3D, x: number, z: number, p: Paleta) {
   const g = grupo(pai, 'estante', x, z);
   bloco(g, 1.45, 2.05, .12, 0, 1.025, -.2, p.preto);
   for (const lado of [-1, 1]) bloco(g, .07, 2.1, .5, lado * .72, 1.05, 0, p.metal);
@@ -74,8 +80,9 @@ function estante(pai: THREE.Object3D, x: number, z: number, p: Paleta) {
   planta(g, .25, 1.96, 0, p, .35);
 }
 
-export function montarSala(scene: THREE.Scene) {
-  const p = paleta(), sala = grupo(scene, 'ambiente');
+export function montarSala(scene: THREE.Scene, estilo?: Estilo, vazio = false) {
+  const p = estilo ? paletaEstilo(estilo) : paleta(), sala = grupo(scene, 'ambiente');
+  if (estilo) { p.preto.color.set(estilo.parede); p.carvalho.color.set(estilo.piso); }
   // Plataforma, piso de madeira e rodapés: as rotas continuam livres entre as estações.
   bloco(sala, 21.35, .34, 15.9, 0, -.23, .2, p.preto, .2);
   bloco(sala, 21, .12, 15.6, 0, -.04, .2, p.carvalho);
@@ -99,6 +106,7 @@ export function montarSala(scene: THREE.Scene) {
     bloco(sala, 2.2, .035, .08, x, 2.4, -7.4, p.luz, 0, false);
   }
   // Tapetes delimitam as áreas sem bloquear a circulação.
+  if (vazio) return sala;
   const tapete = material('#4B5050'), borda = material('#646968');
   for (const z of [-1.5, 1.5, 4.5]) {
     bloco(sala, 14.6, .025, 2.5, 0, .045, z + .35, borda, .18, false);
@@ -152,8 +160,8 @@ export function montarSala(scene: THREE.Scene) {
 }
 
 export interface Posto { grupo: THREE.Group; tela: THREE.MeshLambertMaterial }
-export function montarPosto(scene: THREE.Scene, m: { x: number; z: number }, indice = 0): Posto {
-  const p = paleta(), g = grupo(scene, `estacao-${indice + 1}`, m.x, m.z);
+export function montarPosto(scene: THREE.Scene, m: { x: number; z: number }, indice = 0, estilo?: Estilo): Posto {
+  const p = estilo ? paletaEstilo(estilo) : paleta(), g = grupo(scene, `estacao-${indice + 1}`, m.x, m.z);
   bloco(g, 2, .12, .95, 0, .8, 0, p.carvalho, .12);
   for (const x of [-.85, .85]) { bloco(g, .075, .73, .075, x, .4, -.3, p.metal); bloco(g, .075, .73, .075, x, .4, .3, p.metal); bloco(g, .1, .055, .8, x, .06, 0, p.preto); }
   bloco(g, .85, .015, .42, .04, .87, .1, p.preto, .035);
