@@ -16,7 +16,7 @@ export type Papel = 'leitor' | 'operador' | 'editor' | 'dono';
 export type Provedor = 'anthropic' | 'openai' | 'google';
 export type Autonomia = 'assistido' | 'supervisionado' | 'autonomo' | 'livre';
 export interface Aparencia { corpo: 'monitor' | 'redondo' | 'antenas'; cor: string; acessorio: null | 'gravata' | 'fone' | 'bone'; personagem?: Personagem | 'classico' | 'fotografo' | 'campeao' | 'pesquisador'; versao?: VersaoAvatar; look?: LookAvatar; estilo?: '3d' | 'pixel'; avatarPixel?: PixelPersonagem; acessorios?: EquipamentoPixel; roupaPixel?: RoupaPixel }
-export interface Escritorio { id: string; nome: string; pausado: boolean }
+export interface Escritorio { id: string; nome: string; pausado: boolean; principal?: boolean; pessoal?: boolean }
 export interface Agente {
   id: string; escritorio_id: string; nome: string; cargo: string; instrucoes: string;
   aparencia: Aparencia; provedor: Provedor; modelo: string; autonomia: Autonomia; ativo: boolean;

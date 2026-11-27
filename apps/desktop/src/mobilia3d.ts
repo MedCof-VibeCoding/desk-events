@@ -80,7 +80,33 @@ export function estante(pai: THREE.Object3D, x: number, z: number, p: Paleta) {
   planta(g, .25, 1.96, 0, p, .35);
 }
 
-export function montarSala(scene: THREE.Scene, estilo?: Estilo, vazio = false) {
+/** Piso e paredes da sala pessoal, sem os móveis — eles vêm do ambiente. */
+export function montarSalaCompacta(scene: THREE.Scene, estilo?: Estilo) {
+  const p = estilo ? paletaEstilo(estilo) : paleta(), sala = grupo(scene, 'ambiente');
+  if (estilo) { p.preto.color.set(estilo.parede); p.carvalho.color.set(estilo.piso); }
+  bloco(sala, 12.95, .34, 10.15, 0, -.23, .15, p.preto, .2);
+  bloco(sala, 12.6, .12, 9.75, 0, -.04, .15, p.carvalho);
+  const junta = material('#A38667');
+  for (let z = -4.55, n = 0; z < 5.05; z += .72, n++) {
+    bloco(sala, 12.6, .008, .018, 0, .025, z, junta, 0, false);
+    const comprimento = Math.min(.72, 5.05 - z);
+    for (let x = -5.2 + (n % 2) * 2.1; x < 6.2; x += 4.2) bloco(sala, .018, .008, comprimento, x, .025, z + comprimento / 2, junta, 0, false);
+  }
+  bloco(sala, 12.75, 2.65, .22, 0, 1.32, -4.9, p.preto);
+  bloco(sala, .22, 2.65, 9.9, -6.5, 1.32, .15, p.preto);
+  bloco(sala, 12.6, .09, .04, 0, .14, -4.76, p.vermelho);
+  bloco(sala, .04, .09, 9.7, -6.36, .14, .15, p.vermelho);
+  const vidro = material('#91ADB0', '#263E43');
+  for (const x of [-3.6, 0, 3.6]) {
+    bloco(sala, 1.7, 1.1, .08, x, 1.6, -4.74, p.metal);
+    bloco(sala, 1.52, .92, .035, x, 1.6, -4.68, vidro, 0, false);
+    bloco(sala, .04, .92, .04, x, 1.6, -4.65, p.preto);
+    bloco(sala, 1.8, .08, .24, x, .95, -4.62, p.carvalho);
+  }
+  return sala;
+}
+export function montarSala(scene: THREE.Scene, estilo?: Estilo, vazio = false, compacta = false) {
+  if (compacta) return montarSalaCompacta(scene, estilo);
   const p = estilo ? paletaEstilo(estilo) : paleta(), sala = grupo(scene, 'ambiente');
   if (estilo) { p.preto.color.set(estilo.parede); p.carvalho.color.set(estilo.piso); }
   // Plataforma, piso de madeira e rodapés: as rotas continuam livres entre as estações.

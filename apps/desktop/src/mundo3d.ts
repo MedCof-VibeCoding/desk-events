@@ -2,8 +2,9 @@ import { avatarDe } from './personagens';
 import { ModelosAvatar, type AvatarMovel } from './avatar3d';
 import * as THREE from 'three';
 import { montarSala, montarPosto, type Posto } from './mobilia3d';
-import { estiloDe, type Ambiente } from './ambientes';
+import { estiloDe, tamanhoDe, type Ambiente } from './ambientes';
 import { montarMovel, descartarObjeto } from './moveisModulares3d';
+import { montarFachadas, type FachadaInfo } from './fachadas3d';
 import { CaminhosAmbiente } from './caminhosAmbiente';
 import type { Agente, Aparencia } from './supabase';
 import { avancarPasso } from './pixelMarcha';
@@ -70,34 +71,40 @@ export class Mundo {
   private moveis = new Map<string, THREE.Group>();
   private destaque?: THREE.BoxHelper;
   private caminhos?: CaminhosAmbiente;
+  private compacta = false;
+  private fachadas?: THREE.Group;
+  private pontosFachada = new Map<string, THREE.Vector3>();
 
-  constructor() {
+  constructor(compacta = false) {
     this.scene.background = new THREE.Color('#080808');
     this.scene.add(new THREE.HemisphereLight('#FFF7EB', '#77716A', 1.8));
     const sol = new THREE.DirectionalLight('#FFF3E0', 1.6);
     sol.position.set(4, 16, 8); sol.shadow.bias = -0.0003; sol.shadow.normalBias = 0.035; sol.castShadow = true; sol.shadow.mapSize.set(2048, 2048);
     Object.assign(sol.shadow.camera, { left: -14, right: 14, top: 12, bottom: -12, near: 1, far: 50 });
     this.scene.add(sol);
-    montarSala(this.scene);
-    for (let i = 0; i < 12; i++) this.postos.set(i, montarPosto(this.scene, mesaDe(i), i));
+    this.compacta = compacta;
+    montarSala(this.scene, undefined, false, compacta);
+    const postos = compacta ? 6 : 12;
+    for (let i = 0; i < postos; i++) this.postos.set(i, montarPosto(this.scene, compacta ? { x: [-4, 0, 4][i % 3], z: [-1.2, 2.2][Math.floor(i / 3)] } : mesaDe(i), i));
   }
 
-  configurar(ambiente: Ambiente) {
+  configurar(ambiente: Ambiente, compacta = this.compacta) {
     this.ambiente = ambiente;
     this.selecionarMovel(null);
     const sala=this.scene.getObjectByName('ambiente'); if(sala) descartarObjeto(sala);
     for(const p of this.postos.values()) if(!this.moveis.has(p.grupo.userData.movelId)) descartarObjeto(p.grupo);
     for(const m of this.moveis.values()) descartarObjeto(m);
     this.postos.clear(); this.moveis.clear();
+    this.compacta = compacta;
     const estilo=estiloDe(ambiente.estilo);
-    montarSala(this.scene,estilo,true);
+    montarSala(this.scene,estilo,true,compacta);
     for(const item of ambiente.itens) {
       let g:THREE.Group;
       if(item.tipo==='posto') { const p=montarPosto(this.scene,item,item.slot!,estilo); p.grupo.rotation.y=item.giro*Math.PI/2; p.grupo.userData.movelId=item.id; this.postos.set(item.slot!,p); g=p.grupo; }
       else { g=montarMovel(item,estilo); this.scene.add(g); }
       this.moveis.set(item.id,g);
     }
-    this.caminhos=new CaminhosAmbiente(ambiente);
+    this.caminhos=new CaminhosAmbiente(ambiente, tamanhoDe(compacta));
     for(const b of this.bonecos.values()) { const casa=this.casa(b.indice); b.grupo.position.set(casa.x,0,casa.z); b.rota=[]; }
   }
   private casa(i:number):P {
@@ -116,6 +123,32 @@ export class Mundo {
     if(g) { this.destaque=new THREE.BoxHelper(g,0xff6175); this.scene.add(this.destaque); }
   }
   preverMovel(id:string,x:number,z:number) { const g=this.moveis.get(id);if(g){g.position.x=x;g.position.z=z;this.destaque?.update();} }
+  /** Substitui as casinhas em volta do escritório principal. Lista vazia remove todas. */
+  mostrarFachadas(salas: FachadaInfo[]) {
+    if (this.fachadas) descartarObjeto(this.fachadas);
+    this.fachadas = undefined;
+    this.pontosFachada.clear();
+    if (!salas.length) return;
+    const montadas = montarFachadas(salas);
+    this.fachadas = montadas.grupo;
+    this.pontosFachada = montadas.pontos;
+    this.scene.add(montadas.grupo);
+  }
+  etiquetaFachada(id: string, saida: THREE.Vector3): boolean {
+    const p = this.pontosFachada.get(id);
+    if (!p) return false;
+    saida.copy(p);
+    return true;
+  }
+  alvoFachada(raio: THREE.Raycaster): { id: string; distancia: number } | null {
+    if (!this.fachadas) return null;
+    for (const hit of raio.intersectObjects(this.fachadas.children, true)) {
+      let o: THREE.Object3D | null = hit.object;
+      while (o) { if (o.userData.salaId) return { id: o.userData.salaId as string, distancia: hit.distance }; o = o.parent; }
+    }
+    return null;
+  }
+
   alvoMovel(raio:THREE.Raycaster):string|null {
     for(const hit of raio.intersectObjects([...this.moveis.values()],true)) { let o:THREE.Object3D|null=hit.object; while(o){ if(o.userData.movelId) return o.userData.movelId as string; o=o.parent; } }
     return null;
@@ -126,7 +159,7 @@ export class Mundo {
     const vivos = new Set(agentes.map(a => a.id));
     for (const [id, b] of this.bonecos) if (!vivos.has(id)) { this.scene.remove(b.grupo); descartarBoneco(b); this.bonecos.delete(id); }
     agentes.forEach((a, i) => {
-      const slot = i % 12;
+      const slot = i % (this.compacta ? 6 : 12);
       const chave = JSON.stringify(a.aparencia);
       let b = this.bonecos.get(a.id);
       if (!b || b.chave !== chave) {
@@ -164,6 +197,13 @@ export class Mundo {
     });
   }
 
+  /** Ponto de passeio dentro da sala atual. */
+  private destinoPasseio(lar: P): P {
+    if (this.compacta) return { x: -4.2 + Math.random() * 8.4, z: -3 + Math.random() * 6.6 };
+    const r = Math.random();
+    return r < 0.3 ? lar : r < 0.75 ? PONTOS[Math.floor(Math.random() * PONTOS.length)] : { x: -8 + Math.random() * 15.6, z: FAIXAS[Math.floor(Math.random() * FAIXAS.length)] };
+  }
+
   passo(dt: number, parado = false) {
     const ligadas = new Set<number>();
     for (const b of this.bonecos.values()) {
@@ -184,8 +224,7 @@ export class Mundo {
       } else if (!b.ocupado && ativo && b.animado) {
         b.espera -= dt;
         if (b.espera <= 0) {
-          const r = Math.random();
-          const destino = r < 0.3 ? lar : r < 0.75 ? PONTOS[Math.floor(Math.random() * PONTOS.length)] : { x: -8 + Math.random() * 15.6, z: FAIXAS[Math.floor(Math.random() * FAIXAS.length)] };
+          const destino = this.destinoPasseio(lar);
           b.rota = this.caminho({ x: pos.x, z: pos.z }, destino); b.espera = 2 + Math.random() * 6;
         }
       }

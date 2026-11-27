@@ -85,6 +85,10 @@ h3 { font-size: .95rem; margin: 18px 0 6px; }
 .etiqueta.escolhida { outline: 2px solid var(--accent); }
 .etiqueta .luz { width: 8px; height: 8px; border-radius: 50%; background: #6B7487; }
 .etiqueta.trabalhando .luz { background: #3DDC84; box-shadow: 0 0 6px #3DDC84; }
+.etiqueta-sala { flex-direction: column; align-items: flex-start; gap: 2px; border-left-color: #B79876; max-width: 168px; white-space: normal; }
+.etiqueta-sala small { font-weight: 500; opacity: .8; }
+.etiqueta-sala.aberta, .etiqueta-sala.liberada { outline: 2px solid #e60039; }
+.etiqueta-sala em { min-width: 16px; padding: 0 4px; border-radius: 99px; background: #e24b4b; color: #fff; font-style: normal; font-size: 10px; text-align: center; }
 .so-leitor { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .dica3d { position: absolute; left: 12px; bottom: 8px; margin: 0; font-size: .76rem; color: #9BA4BD; pointer-events: none; }
 .btn.alerta { border-color: #E3A008; color: #E3A008; }

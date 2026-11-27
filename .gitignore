@@ -1,4 +1,5 @@
 node_modules
+.tmp-avatar-rig
 dist
 dist-electron
 release

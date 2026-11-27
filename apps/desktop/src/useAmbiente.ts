@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from './supabase';
-import { criarAmbiente, validarAmbiente, type Ambiente } from './ambientes';
+import { criarAmbiente, tamanhoDe, validarAmbiente, type Ambiente } from './ambientes';
 
-export function useAmbiente(escritorioId: string) {
-  const [salvo,setSalvo]=useState<Ambiente>(()=>criarAmbiente());
+export function useAmbiente(escritorioId: string, compacta = false) {
+  const tamanho = tamanhoDe(compacta);
+  const [salvo,setSalvo]=useState<Ambiente>(()=>criarAmbiente('classico', compacta));
   const [rascunho,setRascunho]=useState<Ambiente|null>(null);
   const [carregando,setCarregando]=useState(true),[salvando,setSalvando]=useState(false),[erro,setErro]=useState('');
   const [disponivel,setDisponivel]=useState(false),[conflito,setConflito]=useState(false);
@@ -13,14 +14,20 @@ export function useAmbiente(escritorioId: string) {
       const {data,error}=await supabase.from('ambientes_escritorio').select('layout,revisao').eq('escritorio_id',escritorioId).maybeSingle();
       if(!ativo.current) return;
       if(error) { setDisponivel(false); setErro('Não foi possível carregar a decoração compartilhada. Verifique a conexão e a atualização do banco.'); return; }
-      if(data && !validarAmbiente(data.layout)) { setDisponivel(false); setErro('A decoração salva é incompatível. Não foi substituída.'); return; }
+      if(data && !validarAmbiente(data.layout, tamanho)) {
+        if(!compacta) { setDisponivel(false); setErro('A decoração salva é incompatível. Não foi substituída.'); return; }
+        if((data.revisao ?? 0)<revisao.current)return;
+        setDisponivel(true); revisao.current=data.revisao ?? 0;
+        if(!editando.current){ setErro(''); setSalvo(criarAmbiente('classico', true)); }
+        return;
+      }
       if((data?.revisao ?? 0)<revisao.current)return;
       setDisponivel(true); if(!editando.current)setErro(''); revisao.current=data?.revisao ?? 0;
       if(editando.current && base.current!==revisao.current && !gravando.current) setConflito(true);
-      setSalvo(data?.layout ?? criarAmbiente());
+      setSalvo(data?.layout ?? criarAmbiente('classico', compacta));
     } catch { if(ativo.current) {setDisponivel(false);setErro('Não foi possível conectar para carregar o ambiente.');} }
     finally {if(ativo.current)setCarregando(false);}
-  },[escritorioId]);
+  },[escritorioId, compacta, tamanho]);
   useEffect(()=>{
     ativo.current=true; void carregar();
     const canal=supabase.channel(`ambiente-${escritorioId}`).on('postgres_changes',{event:'*',schema:'public',table:'ambientes_escritorio',filter:`escritorio_id=eq.${escritorioId}`},()=>void carregar()).subscribe();
@@ -30,7 +37,7 @@ export function useAmbiente(escritorioId: string) {
   function cancelar() { if(gravando.current)return;editando.current=false;setRascunho(null);setConflito(false);if(disponivel)setErro(''); }
   async function salvar() {
     if(!rascunho || gravando.current || !disponivel || conflito)return false;
-    if(!validarAmbiente(rascunho)){setErro('Revise a posição dos móveis antes de salvar.');return false;}
+    if(!validarAmbiente(rascunho, tamanho)){setErro('Revise a posição dos móveis antes de salvar.');return false;}
     gravando.current=true;setSalvando(true);setErro('');
     try {
       const {data,error}=await supabase.rpc('salvar_ambiente',{sala:escritorioId,conteudo:rascunho,revisao_esperada:base.current});

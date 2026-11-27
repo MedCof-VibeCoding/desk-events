@@ -8,6 +8,7 @@ import { Mesa } from './Mesa';
 import type { Perfil, SalaAcesso } from './social';
 import { useSalaSocial } from './useSalaSocial';
 import { AcessosSala } from './AcessosSala';
+import { decidirVisita, juntarVitrine, listarPedidos, listarVitrine, pedirVisita, vitrineDeSalas, type PedidoVisita, type SalaVitrine } from './visitas';
 import { SINAL_PONTE_MS, desligarPonte, ligarPonte, navegadorComPasta, retomarPonte, pastaGuardada } from './ponteLocal';
 import { MeuComputador, type EstadoPc } from './MeuComputador';
 import './extras.css';
@@ -31,6 +32,9 @@ export function Office({ session, perfil }: { session: Session; perfil: Perfil }
   const [pastaPonte, setPastaPonte] = useState<string | null>(null);
   const [ligando, setLigando] = useState(false);
   const [salas, setSalas] = useState<SalaAcesso[]>([]);
+  const [vitrine, setVitrine] = useState<SalaVitrine[]>([]);
+  const [pedidos, setPedidos] = useState<PedidoVisita[]>([]);
+  const [erroVisitas, setErroVisitas] = useState('');
   const [computador, setComputador] = useState(false);
   const [erroPc, setErroPc] = useState('');
   const salaAtual = useRef<string | null>(null);
@@ -70,6 +74,7 @@ export function Office({ session, perfil }: { session: Session; perfil: Perfil }
     if (salasRes.error || membrosRes.error) { setErro('Não foi possível carregar suas salas.'); setCarregando(false); return; }
     const lista = (salasRes.data ?? []).map(s => ({ ...s, papel: (membrosRes.data?.find(m => m.escritorio_id === s.id)?.papel ?? 'leitor') as Papel }));
     setSalas(lista);
+    setVitrine(atual => juntarVitrine(vitrineDeSalas(lista), atual));
     // Ao entrar, todos começam no escritório principal, onde as pessoas se encontram. A sala pessoal fica a um clique.
     const escolhida = lista.find(s => s.id === salaAtual.current) ?? lista.find(s => s.principal) ?? lista.find(s => s.id === minhaSala.current) ?? lista[0];
     if (escolhida) { salaAtual.current = escolhida.id; setEscritorio(escolhida); setPapel(escolhida.papel); await Promise.all([carregarAgentes(escolhida.id), carregarOcupados(escolhida.id), contarPendentes(escolhida.id)]); }
@@ -77,11 +82,27 @@ export function Office({ session, perfil }: { session: Session; perfil: Perfil }
     setCarregando(false);
   }, [session.user.id, carregarAgentes, carregarOcupados, contarPendentes]);
 
+  const atualizarVisitas = useCallback(async () => {
+    const [salasVitrine, fila] = await Promise.all([
+      listarVitrine().catch(() => [] as SalaVitrine[]),
+      listarPedidos().catch(() => [] as PedidoVisita[]),
+    ]);
+    setVitrine(atual => juntarVitrine(atual, salasVitrine));
+    setPedidos(fila);
+    setErroVisitas('');
+  }, []);
   useEffect(() => { carregar(); }, [carregar]);
   useEffect(() => {
-    const sub = supabase.channel(`acessos-${session.user.id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'membros', filter: `user_id=eq.${session.user.id}` }, () => void carregar()).subscribe();
+    void atualizarVisitas();
+    const canal = supabase.channel(`visitas-${session.user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos_visita' }, () => void atualizarVisitas())
+      .subscribe();
+    return () => { void supabase.removeChannel(canal); };
+  }, [session.user.id, atualizarVisitas]);
+  useEffect(() => {
+    const sub = supabase.channel(`acessos-${session.user.id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'membros', filter: `user_id=eq.${session.user.id}` }, () => { void carregar(); void atualizarVisitas(); }).subscribe();
     return () => { void supabase.removeChannel(sub); };
-  }, [carregar, session.user.id]);
+  }, [carregar, atualizarVisitas, session.user.id]);
 
   // Quem está conectando este computador: o DeskCof Conector instalado ou esta aba do navegador.
   const verPonte = useCallback(async () => {
@@ -149,6 +170,17 @@ export function Office({ session, perfil }: { session: Session; perfil: Perfil }
     await supabase.auth.signOut();
   }
 
+  async function pedirEntrada(id: string) {
+    setErroVisitas('');
+    try { await pedirVisita(id); await atualizarVisitas(); }
+    catch (e) { setErroVisitas(e instanceof Error ? e.message : 'Não foi possível pedir a visita.'); }
+  }
+  async function decidir(id: string, aceitar: boolean) {
+    setErroVisitas('');
+    try { await decidirVisita(id, aceitar); await atualizarVisitas(); }
+    catch (e) { setErroVisitas(e instanceof Error ? e.message : 'Não foi possível responder ao pedido.'); }
+  }
+
   async function trocarSala(id: string) {
     if (id === escritorio?.id) return;
     setCriando(false); setEditando(null); setAberto(null); setMesa(false); setAgentes([]); setOcupados(new Set());
@@ -174,6 +206,8 @@ export function Office({ session, perfil }: { session: Session; perfil: Perfil }
   const selecionado = agentes.find(a => a.id === aberto);
   return <Workspace escritorio={escritorio} papel={papel} userId={session.user.id} email={session.user.email ?? ''}
     key={escritorio.id} perfil={perfil} social={social}
+    vitrine={vitrine} onEntrarSala={id => void trocarSala(id)} onPedirVisita={id => void pedirEntrada(id)}
+    pedidos={pedidos} onDecidirVisita={(id, aceitar) => void decidir(id, aceitar)} erroVisitas={erroVisitas}
     salasControle={<div className="salas-controle">
       <span className="rotulo-sala" id="onde-estou">Onde você está</span>
       <div className="salas-alternar" role="group" aria-labelledby="onde-estou">
@@ -193,7 +227,7 @@ export function Office({ session, perfil }: { session: Session; perfil: Perfil }
         <span>{pc.ligado ? `${pc.viaConector ? 'Conector' : 'Navegador'} · ${pc.pasta ?? 'conectado'}` : 'Não conectado · configurar'}</span>
       </button>
     </div>}
-    acessos={salas.find(s => s.id === escritorio.id) ? <AcessosSala sala={salas.find(s => s.id === escritorio.id)!} perfil={perfil} /> : null}
+    acessos={salas.find(s => s.id === escritorio.id) ? <AcessosSala sala={salas.find(s => s.id === escritorio.id)!} perfil={perfil} pedidos={pedidos} onDecidir={(id, aceitar) => void decidir(id, aceitar)} /> : null}
     agentes={agentes} ocupados={ocupados} selecionado={aberto} pendentes={pendentes} mesa={mesa} erro={erro}
     onAgente={id => { setMesa(false); setAberto(id); }}
     onCriar={() => { if (pode(papel, 'editor')) { setEditando(null); setCriando(true); } }}

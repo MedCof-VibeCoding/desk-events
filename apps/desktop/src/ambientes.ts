@@ -34,6 +34,11 @@ const POSTO = def('posto','Estação do agente','Mesas','posto',2.1,2.2);
 export const movelDe = (id: string) => id === 'posto' ? POSTO : MOVEIS.find(m => m.id === id);
 export interface ItemAmbiente { id: string; tipo: string; x: number; z: number; giro: number; slot?: number }
 export interface Ambiente { versao: 1; estilo: EstiloId; itens: ItemAmbiente[] }
+export interface TamanhoSala { id: 'grande' | 'compacta'; minX: number; maxX: number; minZ: number; maxZ: number; maxPostos: number }
+export const TAMANHO_GRANDE: TamanhoSala = { id: 'grande', minX: -10.2, maxX: 10.2, minZ: -7.35, maxZ: 7.7, maxPostos: 12 };
+export const TAMANHO_COMPACTA: TamanhoSala = { id: 'compacta', minX: -6.4, maxX: 6.4, minZ: -4.8, maxZ: 5.2, maxPostos: 6 };
+/** Sala pessoal usa o piso menor; o escritório principal continua grande. */
+export function tamanhoDe(compacta: boolean): TamanhoSala { return compacta ? TAMANHO_COMPACTA : TAMANHO_GRANDE; }
 export const estiloDe = (id: string): Estilo => ESTILOS.find(e => e.id === id) ?? ESTILOS[0];
 export const MAX_ITENS = 100;
 export function limitesItem(item: ItemAmbiente, margem = 0) {
@@ -43,11 +48,11 @@ export function limitesItem(item: ItemAmbiente, margem = 0) {
   const w = (vira ? d.d : d.w) / 2 + margem, h = (vira ? d.w : d.d) / 2 + margem;
   return { minX: cx-w, maxX: cx+w, minZ: cz-h, maxZ: cz+h };
 }
-export function erroPosicao(item: ItemAmbiente, itens: ItemAmbiente[]): string | null {
+export function erroPosicao(item: ItemAmbiente, itens: ItemAmbiente[], tamanho: TamanhoSala = TAMANHO_GRANDE): string | null {
   const def = movelDe(item.tipo); if (!def) return 'Móvel desconhecido.';
   if (![item.x,item.z,item.giro].every(Number.isFinite) || !Number.isInteger(item.giro) || item.giro < 0 || item.giro > 3) return 'Posição inválida.';
   const a = limitesItem(item);
-  if (a.minX < -10.2 || a.maxX > 10.2 || a.minZ < -7.35 || a.maxZ > 7.7) return 'Mantenha o móvel dentro do escritório.';
+  if (a.minX < tamanho.minX || a.maxX > tamanho.maxX || a.minZ < tamanho.minZ || a.maxZ > tamanho.maxZ) return 'Mantenha o móvel dentro do escritório.';
   if (def.tapete) return null;
   if (def.superficie) {
     const apoio = itens.some(o => apoia(o,item));
@@ -68,7 +73,7 @@ function apoia(mesa:ItemAmbiente,acessorio:ItemAmbiente) {
   if(mesa.tipo==='posto') {const w=mesa.giro%2?.95:2,d=mesa.giro%2?2:.95;b={minX:mesa.x-w/2,maxX:mesa.x+w/2,minZ:mesa.z-d/2,maxZ:mesa.z+d/2};}
   return a.minX>=b.minX && a.maxX<=b.maxX && a.minZ>=b.minZ && a.maxZ<=b.maxZ;
 }
-export function moverItem(ambiente:Ambiente,novo:ItemAmbiente): {ambiente?:Ambiente;erro?:string} {
+export function moverItem(ambiente:Ambiente,novo:ItemAmbiente,tamanho:TamanhoSala=TAMANHO_GRANDE): {ambiente?:Ambiente;erro?:string} {
   const antigo=ambiente.itens.find(i=>i.id===novo.id);if(!antigo)return {erro:'Móvel não encontrado.'};
   const delta=(novo.giro-antigo.giro)*Math.PI/2;
   const itens=ambiente.itens.map(i=> {
@@ -77,14 +82,22 @@ export function moverItem(ambiente:Ambiente,novo:ItemAmbiente): {ambiente?:Ambie
     const dx=i.x-antigo.x,dz=i.z-antigo.z;
     return {...i,x:Math.round((novo.x+dx*Math.cos(delta)+dz*Math.sin(delta))*100)/100,z:Math.round((novo.z-dx*Math.sin(delta)+dz*Math.cos(delta))*100)/100,giro:(i.giro+novo.giro-antigo.giro+4)%4};
   });
-  for(const i of itens) { if(i===ambiente.itens.find(o=>o.id===i.id))continue;const erro=erroPosicao(i,itens);if(erro)return {erro}; }
+  for(const i of itens) { if(i===ambiente.itens.find(o=>o.id===i.id))continue;const erro=erroPosicao(i,itens,tamanho);if(erro)return {erro}; }
   return {ambiente:{...ambiente,itens}};
 }
 export function removerItem(ambiente:Ambiente,id:string):Ambiente {
   const item=ambiente.itens.find(i=>i.id===id);if(!item)return ambiente;
   return {...ambiente,itens:ambiente.itens.filter(i=>i.id!==id && !(movelDe(i.tipo)?.superficie && apoia(item,i)))};
 }
-export function criarAmbiente(estilo: EstiloId = 'classico'): Ambiente {
+/** Seis mesas em duas fileiras, com sofá, planta, estante e copa. */
+export function criarAmbienteCompacto(estilo: EstiloId = 'classico'): Ambiente {
+  const itens: ItemAmbiente[] = [[-4,-1.2],[0,-1.2],[4,-1.2],[-4,2.2],[0,2.2],[4,2.2]].map(([x,z],i) => ({ id:`posto-${i}`, tipo:'posto', slot:i, x, z, giro:0 }));
+  const add = (tipo: string, x: number, z: number, giro = 0) => itens.push({ id:`base-${itens.length}`, tipo, x, z, giro });
+  add('sofa-grafite', -5.55, 3.4, 1); add('planta-grande', -5.4, -3.85); add('estante', 0, -4.25); add('copa', 4.7, -4.05);
+  return { versao:1, estilo, itens };
+}
+export function criarAmbiente(estilo: EstiloId = 'classico', compacta = false): Ambiente {
+  if (compacta) return criarAmbienteCompacto(estilo);
   const itens: ItemAmbiente[] = Array.from({length:12}, (_,i) => ({ id:`posto-${i}`, tipo:'posto', slot:i, x:[-5.4,-1.8,1.8,5.4][i%4], z:[-1.5,1.5,4.5][Math.floor(i/4)], giro:0 }));
   if(['industrial','minimalista','biblioteca'].includes(estilo)) itens.forEach((item,i)=>{item.x=[-5.5,0,5.5][i%3];item.z=[-1.5,.8,3.1,5.4][Math.floor(i/3)];});
   if(['tech','criativo','estudio'].includes(estilo)) itens.forEach((item,i)=>{item.giro=i%4<2?1:3;});
@@ -106,22 +119,22 @@ export function criarAmbiente(estilo: EstiloId = 'classico'): Ambiente {
   if (estilo === 'estudio') { add('camera',9.1,-3.5); add('divisoria-acustica',-2.8,-5.8,1); add('caixa-som',1.9,-5.8); }
   return { versao:1, estilo, itens };
 }
-export function validarAmbiente(valor: unknown): valor is Ambiente {
+export function validarAmbiente(valor: unknown, tamanho: TamanhoSala = TAMANHO_GRANDE): valor is Ambiente {
   if (!valor || typeof valor !== 'object') return false;
   const a = valor as Ambiente;
   if (a.versao !== 1 || !ESTILOS.some(e=>e.id===a.estilo) || !Array.isArray(a.itens) || a.itens.length > MAX_ITENS) return false;
-  const ids = new Set<string>(), slots = new Set<number>();
+  const ids = new Set<string>(), slots = new Set<number>(), maxSlot = tamanho.maxPostos - 1;
   for (const i of a.itens) {
     if (!i || typeof i.id !== 'string' || !/^[a-zA-Z0-9-]{1,80}$/.test(i.id) || ids.has(i.id) || !movelDe(i.tipo)) return false;
     ids.add(i.id);
     if (![i.x,i.z,i.giro].every(Number.isFinite) || !Number.isInteger(i.giro) || i.giro<0 || i.giro>3) return false;
-    if (i.tipo === 'posto') { if (!Number.isInteger(i.slot) || i.slot! < 0 || i.slot! > 11 || slots.has(i.slot!)) return false; slots.add(i.slot!); }
+    if (i.tipo === 'posto') { if (!Number.isInteger(i.slot) || i.slot! < 0 || i.slot! > maxSlot || slots.has(i.slot!)) return false; slots.add(i.slot!); }
   }
-  return slots.size <= 12 && a.itens.every(i=>!erroPosicao(i,a.itens));
+  return slots.size <= tamanho.maxPostos && a.itens.every(i=>!erroPosicao(i,a.itens,tamanho));
 }
-export function lugarLivre(tipo: string, itens: ItemAmbiente[]): ItemAmbiente | null {
+export function lugarLivre(tipo: string, itens: ItemAmbiente[], tamanho: TamanhoSala = TAMANHO_GRANDE): ItemAmbiente | null {
   if (itens.length >= MAX_ITENS) return null;
   const item: ItemAmbiente = { id:crypto.randomUUID(),tipo,x:0,z:0,giro:0 };
-  for (let z=6.5; z>=-7; z-=.5) for (let x=-9.5; x<=9.5; x+=.5) { item.x=x; item.z=z; if (!erroPosicao(item,itens)) return {...item}; }
+  for (let z=tamanho.maxZ-.7; z>=tamanho.minZ+.5; z-=.5) for (let x=tamanho.minX+.7; x<=tamanho.maxX-.7; x+=.5) { item.x=Math.round(x*100)/100; item.z=Math.round(z*100)/100; if (!erroPosicao(item,itens,tamanho)) return {...item}; }
   return null;
 }

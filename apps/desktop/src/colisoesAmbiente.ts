@@ -1,19 +1,30 @@
-import { limitesItem, movelDe, type Ambiente } from './ambientes';
+import { TAMANHO_GRANDE, limitesItem, movelDe, type Ambiente, type TamanhoSala } from './ambientes';
 export interface Ponto { x:number; z:number }
 interface Caixa { minX:number; maxX:number; minZ:number; maxZ:number }
 export const RAIO_PERSONAGEM=.28;
-const SALA:Caixa={minX:-10.15,maxX:10.15,minZ:-7.2,maxZ:7.65};
 const finito=(p:Ponto)=>Number.isFinite(p.x)&&Number.isFinite(p.z);
 
 // Volumes no chão expandidos pelo raio do personagem. A varredura contínua
 // impede atravessar objetos finos mesmo quando um quadro demora mais.
 export class CaminhosAmbiente {
   private passo=.25;
-  private largura=81;
-  private altura=59;
+  private largura:number;
+  private altura:number;
+  private origemX:number;
+  private origemZ:number;
+  private sala:Caixa;
   private bloqueados=new Set<number>();
   private caixas:Caixa[]=[];
-  constructor(ambiente:Ambiente) {
+  constructor(ambiente:Ambiente, tamanho:TamanhoSala=TAMANHO_GRANDE) {
+    if(tamanho.id==='grande') {
+      this.sala={minX:-10.15,maxX:10.15,minZ:-7.2,maxZ:7.65};
+      this.origemX=-10; this.origemZ=-7; this.largura=81; this.altura=59;
+    } else {
+      this.sala={minX:tamanho.minX+.05,maxX:tamanho.maxX-.05,minZ:tamanho.minZ+.15,maxZ:tamanho.maxZ-.05};
+      this.origemX=this.sala.minX; this.origemZ=this.sala.minZ;
+      this.largura=Math.max(2,Math.round((this.sala.maxX-this.sala.minX)/this.passo));
+      this.altura=Math.max(2,Math.round((this.sala.maxZ-this.sala.minZ)/this.passo));
+    }
     const adicionar=(b:Caixa)=>this.caixas.push({minX:b.minX-RAIO_PERSONAGEM,maxX:b.maxX+RAIO_PERSONAGEM,minZ:b.minZ-RAIO_PERSONAGEM,maxZ:b.maxZ+RAIO_PERSONAGEM});
     for(const i of ambiente.itens) {
       const d=movelDe(i.tipo);if(!d||d.tapete||d.superficie)continue;
@@ -27,23 +38,23 @@ export class CaminhosAmbiente {
     for(let id=0;id<this.largura*this.altura;id++)if(this.bloqueado(this.ponto(id)))this.bloqueados.add(id);
   }
   bloqueado(p:Ponto):boolean {
-    return !finito(p)||p.x<SALA.minX||p.x>SALA.maxX||p.z<SALA.minZ||p.z>SALA.maxZ||this.caixas.some(b=>p.x>b.minX&&p.x<b.maxX&&p.z>b.minZ&&p.z<b.maxZ);
+    return !finito(p)||p.x<this.sala.minX||p.x>this.sala.maxX||p.z<this.sala.minZ||p.z>this.sala.maxZ||this.caixas.some(b=>p.x>b.minX&&p.x<b.maxX&&p.z>b.minZ&&p.z<b.maxZ);
   }
-  private ponto(id:number):Ponto {return {x:-10+(id%this.largura)*this.passo,z:-7+Math.floor(id/this.largura)*this.passo};}
-  private celula(p:Ponto) {return Math.max(0,Math.min(this.altura-1,Math.round((p.z+7)/this.passo)))*this.largura+Math.max(0,Math.min(this.largura-1,Math.round((p.x+10)/this.passo)));}
+  private ponto(id:number):Ponto {return {x:this.origemX+(id%this.largura)*this.passo,z:this.origemZ+Math.floor(id/this.largura)*this.passo};}
+  private celula(p:Ponto) {return Math.max(0,Math.min(this.altura-1,Math.round((p.z-this.origemZ)/this.passo)))*this.largura+Math.max(0,Math.min(this.largura-1,Math.round((p.x-this.origemX)/this.passo)));}
   // Usado no nascimento e quando a decoração muda, nunca para avançar um passo.
   livre(p:Ponto):Ponto {
-    if(!finito(p))p={x:0,z:7.5};
+    if(!finito(p))p={x:(this.sala.minX+this.sala.maxX)/2,z:this.sala.maxZ-.4};
     if(!this.bloqueado(p))return {x:p.x,z:p.z};
-    let melhor:Ponto={x:0,z:7.5},distancia=Infinity;
+    let melhor:Ponto={x:(this.sala.minX+this.sala.maxX)/2,z:this.sala.maxZ-.4},distancia=Infinity;
     for(let n=0;n<this.largura*this.altura;n++)if(!this.bloqueados.has(n)){const q=this.ponto(n),d=Math.hypot(q.x-p.x,q.z-p.z);if(d<distancia){melhor=q;distancia=d;}}
     return melhor;
   }
   private fracaoLivre(de:Ponto,para:Ponto):number {
     if(!finito(de)||!finito(para)||this.bloqueado(de))return 0;
     const dx=para.x-de.x,dz=para.z-de.z;let limite=1;
-    if(dx>0)limite=Math.min(limite,(SALA.maxX-de.x)/dx);else if(dx<0)limite=Math.min(limite,(SALA.minX-de.x)/dx);
-    if(dz>0)limite=Math.min(limite,(SALA.maxZ-de.z)/dz);else if(dz<0)limite=Math.min(limite,(SALA.minZ-de.z)/dz);
+    if(dx>0)limite=Math.min(limite,(this.sala.maxX-de.x)/dx);else if(dx<0)limite=Math.min(limite,(this.sala.minX-de.x)/dx);
+    if(dz>0)limite=Math.min(limite,(this.sala.maxZ-de.z)/dz);else if(dz<0)limite=Math.min(limite,(this.sala.minZ-de.z)/dz);
     for(const b of this.caixas) {
       let entrada=-Infinity,saida=Infinity;
       for(const [p,d,min,max] of [[de.x,dx,b.minX,b.maxX],[de.z,dz,b.minZ,b.maxZ]]) {

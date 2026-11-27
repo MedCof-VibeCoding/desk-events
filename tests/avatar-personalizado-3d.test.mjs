@@ -169,3 +169,18 @@ test('acessórios de cabeça não atravessam o rosto em nenhum personagem',()=>{
     } finally {avatar.destruir();}
   }
 });
+
+test('vermelho e bordô são cores válidas para a parte de cima e chegam ao 3D',()=>{
+  const {roupaDe,CORES_ROUPA}=require(arquivo);
+  for(const id of ['vermelho','bordo']) {
+    const ap={...base,roupaPixel:{modelo:'basica',superior:id,inferior:'grafite',calcado:'cinza'}};
+    assert.equal(roupaDe(ap).superior,id);
+    const cor=CORES_ROUPA.find(c=>c.id===id).cor;
+    const avatar=new AvatarAnimado(gltf,ap);
+    try {
+      const manga=avatar.root.getObjectByName('manga-L');let achou=false;
+      manga.traverse(o=>{if(o.isMesh&&!o.userData.contorno&&o.material.color.getHexString()===new THREE.Color(cor).getHexString())achou=true;});
+      assert.ok(achou,`${id}: manga sem a cor escolhida`);
+    } finally {avatar.destruir();}
+  }
+});

@@ -10,7 +10,9 @@ export const CORES_ROUPA = [
   {id:'creme',nome:'Creme',cor:'#dfd4bd'},
   {id:'verde',nome:'Verde',cor:'#3c8065'},
   {id:'violeta',nome:'Violeta',cor:'#805bb0'},
-  {id:'azul',nome:'Azul',cor:'#397faf'}
+  {id:'azul',nome:'Azul',cor:'#397faf'},
+  {id:'vermelho',nome:'Vermelho',cor:'#c8343c'},
+  {id:'bordo',nome:'Bordô',cor:'#7a1f33'}
 ] as const;
 export const CORES_CALCA = [
   {id:'grafite',nome:'Grafite',cor:'#45434e'},
